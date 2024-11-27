@@ -1,7 +1,0 @@
-{
-    "files.associations": {
-        "*.py": "python",
-        "starpu_helper.h": "c",
-        "stdlib.h": "c"
-    }
-}
