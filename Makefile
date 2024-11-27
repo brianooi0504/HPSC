@@ -1,31 +1,33 @@
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -Wall -Wextra -g -I./include  # Include the headers from 'include/'
+
+# Directories
+SRC_DIR = src
+OBJ_DIR = build
+INCLUDE_DIR = include
+
+# Files
+SRCS = $(wildcard $(SRC_DIR)/*.c)      # All .c files in src/
+OBJS = $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)  # Corresponding .o files in build/
 
 # Target executable
 TARGET = starpu_app
 
-# Source and header files
-SRCS = axpy.c data_interface.c task.c timing.c vector_interface.c workers.c
-HDRS = starpu_data_interfaces.h starpu_data.h starpu_helper.h starpu_task.h starpu.h
-
-# Object files
-OBJS = $(SRCS:.c=.o)
-
 # Default rule
 all: $(TARGET)
 
-# Rule to build the target
+# Rule to build the target executable
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
-# Rule to build object files
-%.o: %.c $(HDRS)
+# Rule to build object files (.o) from .c files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean rule
+# Clean rule to remove build artifacts
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJ_DIR)/*.o $(TARGET)
 
 # Phony targets
 .PHONY: all clean
