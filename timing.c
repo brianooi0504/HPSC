@@ -1,5 +1,5 @@
-#include <starpu.h>
 #include <time.h>
+#include "starpu.h"
 
 double starpu_timing_now(void) {
     struct timespec now;

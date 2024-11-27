@@ -1,22 +1,40 @@
-void starpu_data_register(starpu_data_handle_t *handleptr, int home_node, void *data_interface, struct starpu_data_interface_ops *ops)
-{
-	STARPU_ASSERT_MSG(home_node >= -1 && home_node < (int)starpu_memory_nodes_get_count(), "Invalid memory node number");
-	starpu_data_handle_t handle = _starpu_data_handle_allocate(ops, home_node);
+#include "starpu.h"
 
-	STARPU_ASSERT(handleptr);
-	*handleptr = handle;
+void starpu_data_handle_submit(struct starpu_data_handle* data_handle) {
+	pthread_mutex_lock(&data_handle_list.lock);
 
-	if (ops->interfaceid == STARPU_UNKNOWN_INTERFACE_ID)
-	{
-		ops->interfaceid = starpu_data_interface_get_next_id();
-	}
+    if (data_handle_list.tail) {
+        data_handle_list.tail->next_data_handle = data_handle;
+    } else {
+        data_handle_list.head = data_handle;
+    }
+    data_handle_list.tail = data_handle;
 
-	/* fill the interface fields with the appropriate method */
-	STARPU_ASSERT(ops->register_data_handle);
-	ops->register_data_handle(handle, home_node, data_interface);
+    pthread_mutex_unlock(&data_handle_list.lock);
+}
 
-	_starpu_data_register_ops(ops);
+struct starpu_data_handle* starpu_data_handle_get(void) {
+	struct starpu_data_handle* next = NULL;
 
-	_starpu_register_new_data(handle, home_node, 0);
-	_STARPU_TRACE_HANDLE_DATA_REGISTER(handle);
+	pthread_mutex_lock(&data_handle_list.lock);
+
+    if (data_handle_list.head) {
+        next = data_handle_list.head;
+
+        data_handle_list.head = next->next_data_handle;
+
+        if (!data_handle_list.head) {
+            data_handle_list.tail = NULL;
+        }
+    }
+
+    pthread_mutex_unlock(&data_handle_list.lock);
+
+   return next;
+}
+
+void starpu_data_handle_list_init(struct starpu_data_handle_list *list) {
+	pthread_mutex_lock(&list->lock);
+	list->head = NULL;
+	list->tail = NULL;
 }

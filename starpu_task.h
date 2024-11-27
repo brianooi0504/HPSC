@@ -1,9 +1,7 @@
 #ifndef __STARPU_TASK_H__
 #define __STARPU_TASK_H__
 
-#include <starpu.h>
-#include <errno.h>
-#include <assert.h>
+#include "starpu.h"
 
 #define STARPU_MAXIMPLEMENTATIONS 100
 #define STARPU_NMAXBUFS 100
@@ -36,10 +34,6 @@ enum starpu_task_status {
     TASK_FINISHED, // finished executing
 };
 
-typedef struct {
-
-} starpu_data_handler;
-
 struct starpu_codelet {
     starpu_cpu_func_t cpu_funcs[STARPU_MAXIMPLEMENTATIONS];
     const char *cpu_funcs_name[STARPU_MAXIMPLEMENTATIONS];
@@ -47,28 +41,32 @@ struct starpu_codelet {
     enum starpu_data_access_mode modes[STARPU_NMAXBUFS]; //describes the required access modes to the data needed by the codelet
 } ;
 
-struct starpu_data {
-    void* ptr;
-    size_t size;
-    int version;
-    int exec_version;
-};
-
-struct starpu_task{
+struct starpu_task {
     struct starpu_codelet* cl;
-    starpu_data_handle_t handles[STARPU_NMAXBUFS]; //struct data will be here 
+    struct starpu_data_handle* handles[STARPU_NMAXBUFS]; //struct data will be here 
     void *cl_arg;
     size_t cl_arg_size;
     starpu_tag_t tag_id;
     int priority;
     enum starpu_task_status status;
+    struct starpu_task* next_task;
 };
 
-void starpu_codelet_init() {
+struct starpu_task_list {
+    pthread_mutex_t lock;
+    struct starpu_task* head;
+    struct starpu_task* tail;
+};
 
-}
+void starpu_codelet_init(void);
 
 struct starpu_task* starpu_task_create(void);
-int starpu_task_submit(struct starpu_task* task);
+void starpu_task_submit(struct starpu_task* task);
+struct starpu_task* starpu_task_get(void);
+
+void starpu_task_list_init(struct starpu_task_list *list);
+
+void starpu_task_wait_for_all(void);
+void starpu_task_run(struct starpu_task* task);
 
 #endif /* __STARPU_TASK_H__ */
