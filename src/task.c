@@ -73,8 +73,7 @@ void starpu_task_wait_for_all(void) {
 
 void starpu_task_run(struct starpu_task* task) {
     struct starpu_codelet* cl = task->cl;
-    
-    const char* func_name = cl->cpu_funcs_name[0];
 
-    printf("Running %s\n", func_name);
+    starpu_cpu_func_t func = cl->cpu_funcs[0];
+    func(NULL, task->cl_arg);
 }

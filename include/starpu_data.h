@@ -17,7 +17,6 @@ struct starpu_data_handle {
     size_t nx;
     size_t elem_size;
     void* user_data;
-    void** ptrs; // Array of pointers for each dimension
     struct starpu_data_handle* next_data_handle;
 };
 

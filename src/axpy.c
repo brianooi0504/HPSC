@@ -10,6 +10,7 @@
     TODO:
     vector_partition()
     task_run()
+    axpy_cpu get descr from pointers
 */
 
 #include <stdlib.h>
@@ -40,6 +41,7 @@ void axpy_cpu(void *descr[], void *arg)
 	// TYPE *block_y = (TYPE *)STARPU_VECTOR_GET_PTR(descr[1]);
 
 	// AXPY((int)n, alpha, block_x, 1, block_y, 1);
+    printf("Running axpy_cpu with alpha = %.2f\n", alpha);
 }
 
 static struct starpu_codelet axpy_cl = {
@@ -59,8 +61,6 @@ int main(void) {
 
     _vec_x = malloc(N*sizeof(TYPE));
     _vec_y = malloc(N*sizeof(TYPE));
-
-    unsigned i;
 
     for (int i = 0; i < N; i++) {
         _vec_x[i] = 1.0f;
@@ -99,6 +99,8 @@ int main(void) {
 
     /* Stop StarPU */
     starpu_shutdown();
+
+    printf("Time elapsed: %.2fus\n", timing);
 
     return exit_value;
 }
