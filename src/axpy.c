@@ -21,15 +21,17 @@
 
 #define TYPE float
 
-#define N (16*1024*1024)
+// #define N (16*1024*1024)
+#define N 64
 
 #define NBLOCKS	8
-#define NDIM 3
+#define NDIM 1
 
 TYPE *_vec_x, *_vec_y;
 TYPE _alpha = 3.41;
 
-struct starpu_data_handle _handle_y, _handle_x;
+int *_arr;
+struct starpu_data_handle _handle_y, _handle_x, _handle_arr;
 
 void axpy_cpu(void *descr[], void *arg)
 {
@@ -44,11 +46,41 @@ void axpy_cpu(void *descr[], void *arg)
     printf("Running axpy_cpu with alpha = %.2f\n", alpha);
 }
 
+void increment(void *array[], void* arg) {
+    printf("Running increment function\n");
+    TYPE* block = (TYPE *) array[0];
+    int block_size = N/NBLOCKS;
+
+    printf("Before: ");
+    for (int i = 0; i < block_size; i++) {
+        printf(" %.1f ", block[i]);
+    }
+    printf("\n");
+    
+
+    for (int i = 0; i < block_size; i++) {
+        block[i]++;
+    }
+
+    printf("After: ");
+    for (int i = 0; i < block_size; i++) {
+        printf(" %.1f ", block[i]);
+    }
+    printf("\n");
+}
+
 static struct starpu_codelet axpy_cl = {
     .cpu_funcs = {axpy_cpu},
     .cpu_funcs_name = {"axpy_cpu"},
     .nbuffers = 2,
     .modes = {STARPU_R, STARPU_RW}
+};
+
+static struct starpu_codelet increment_cl = {
+    .cpu_funcs = {increment},
+    .cpu_funcs_name = {"increment"},
+    .nbuffers = 1,
+    .modes = {STARPU_RW}
 };
 
 int main(void) {
@@ -59,17 +91,24 @@ int main(void) {
         exit(-1);
     }
 
-    _vec_x = malloc(N*sizeof(TYPE));
-    _vec_y = malloc(N*sizeof(TYPE));
+    // _vec_x = malloc(N*sizeof(TYPE));
+    // _vec_y = malloc(N*sizeof(TYPE));
+
+    // for (int i = 0; i < N; i++) {
+    //     _vec_x[i] = 1.0f;
+    //     _vec_y[i] = 4.0f;
+    // }
+
+    _arr = malloc(N*sizeof(TYPE));
 
     for (int i = 0; i < N; i++) {
-        _vec_x[i] = 1.0f;
-        _vec_y[i] = 4.0f;
+        _arr[i] = 0.0f;
     }
 
     /* Declare the data to StarPU */
-	starpu_vector_data_register(&_handle_x, NDIM, (uintptr_t)_vec_x, N, sizeof(TYPE));
-	starpu_vector_data_register(&_handle_y, NDIM, (uintptr_t)_vec_y, N, sizeof(TYPE));
+	// starpu_vector_data_register(&_handle_x, NDIM, (uintptr_t)_vec_x, N, sizeof(TYPE));
+	// starpu_vector_data_register(&_handle_y, NDIM, (uintptr_t)_vec_y, N, sizeof(TYPE));
+    starpu_vector_data_register(&_handle_arr, NDIM, (uintptr_t)_arr, N, sizeof(TYPE));
 
     double start, end;
     start = starpu_timing_now();
@@ -78,13 +117,14 @@ int main(void) {
     for (b = 0; b < NBLOCKS; b++) {
         struct starpu_task* task = starpu_task_create();
 
-        task->cl = &axpy_cl;
+        task->cl = &increment_cl;
 
         task->cl_arg = &_alpha;
 		task->cl_arg_size = sizeof(_alpha);
         
-        task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS);
-		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS); // start_dim0, end_dim0, start_dim1, end_dim1...
+        // task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS);
+		// task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS); // start_dim0, end_dim0, start_dim1, end_dim1...
+        task->handles[0] = starpu_data_get_sub_data(_handle_arr, b, NBLOCKS);
 
         task->tag_id = b;
 

@@ -75,5 +75,5 @@ void starpu_task_run(struct starpu_task* task) {
     struct starpu_codelet* cl = task->cl;
 
     starpu_cpu_func_t func = cl->cpu_funcs[0];
-    func(NULL, task->cl_arg);
+    func((void *) task->handles, task->cl_arg);
 }
