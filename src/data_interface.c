@@ -38,3 +38,18 @@ void starpu_data_handle_list_init(struct starpu_data_handle_list *list) {
 	list->head = NULL;
 	list->tail = NULL;
 }
+
+void starpu_data_handle_init(struct starpu_data_handle *handle) {
+    handle->current_mode = STARPU_RW;
+    handle->dimensions = 0;
+    handle->version = 0;
+    handle->exec_version = 0;
+    handle->nx = 0;
+    handle->elem_size = 0;
+    handle->user_data = NULL;
+    handle->next_data_handle = NULL;
+    handle->parent_data_handle = NULL;
+    handle->children_data_handles = NULL;
+    handle->num_children = 0;
+    handle->tag_id = 0;
+}

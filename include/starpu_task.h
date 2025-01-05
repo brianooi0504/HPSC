@@ -9,7 +9,6 @@
 #define STARPU_MAIN_RAM 0
 
 typedef void (*starpu_cpu_func_t) (void **, void *);
-typedef uint64_t starpu_tag_t;
 
 // typedef struct {
 //     int type;
@@ -44,9 +43,10 @@ struct starpu_codelet {
 struct starpu_task {
     struct starpu_codelet* cl;
     struct starpu_data_handle* handles[STARPU_NMAXBUFS]; //struct data will be here 
+    int version_req[STARPU_NMAXBUFS];
     void *cl_arg;
     size_t cl_arg_size;
-    starpu_tag_t tag_id;
+    uint64_t tag_id;
     int priority;
     enum starpu_task_status status;
     struct starpu_task* next_task;

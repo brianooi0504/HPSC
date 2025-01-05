@@ -18,6 +18,10 @@ struct starpu_data_handle {
     size_t elem_size;
     void* user_data;
     struct starpu_data_handle* next_data_handle;
+    struct starpu_data_handle* parent_data_handle;
+    struct starpu_data_handle** children_data_handles;
+    size_t num_children;
+    uint64_t tag_id;
 };
 
 struct starpu_data_handle_list {
@@ -30,5 +34,7 @@ void starpu_data_handle_submit(struct starpu_data_handle* data_handle);
 struct starpu_data_handle* starpu_data_handle_get(void);
 
 void starpu_data_handle_list_init(struct starpu_data_handle_list *list);
+
+void starpu_data_handle_init(struct starpu_data_handle *handle);
 
 #endif /* __STARPU_DATA_H__ */

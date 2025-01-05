@@ -27,10 +27,9 @@
 #define NBLOCKS	8
 #define NDIM 1
 
-TYPE *_vec_x, *_vec_y;
+TYPE *_vec_x, *_vec_y, *_arr;
 TYPE _alpha = 3.41;
 
-int *_arr;
 struct starpu_data_handle _handle_y, _handle_x, _handle_arr;
 
 void axpy_cpu(void *descr[], void *arg)
@@ -48,12 +47,12 @@ void axpy_cpu(void *descr[], void *arg)
 
 void increment(void *array[], void* arg) {
     printf("Running increment function\n");
-    TYPE* block = (TYPE *) array[0];
+    TYPE* block = (TYPE *) array;
     int block_size = N/NBLOCKS;
 
     printf("Before: ");
     for (int i = 0; i < block_size; i++) {
-        printf(" %.1f ", block[i]);
+        printf(" %.0f ", block[i]);
     }
     printf("\n");
     
@@ -62,9 +61,9 @@ void increment(void *array[], void* arg) {
         block[i]++;
     }
 
-    printf("After: ");
+    printf("After:  ");
     for (int i = 0; i < block_size; i++) {
-        printf(" %.1f ", block[i]);
+        printf(" %.0f ", block[i]);
     }
     printf("\n");
 }
@@ -105,10 +104,19 @@ int main(void) {
         _arr[i] = 0.0f;
     }
 
+    for (int i = 10; i < 24; i++) {
+        _arr[i] = 1.0f;
+    }
+
+    for (int i = 0; i < N; i++) {
+        printf("%.0f", _arr[i]);
+    }
+    printf("\n");
+
     /* Declare the data to StarPU */
 	// starpu_vector_data_register(&_handle_x, NDIM, (uintptr_t)_vec_x, N, sizeof(TYPE));
 	// starpu_vector_data_register(&_handle_y, NDIM, (uintptr_t)_vec_y, N, sizeof(TYPE));
-    starpu_vector_data_register(&_handle_arr, NDIM, (uintptr_t)_arr, N, sizeof(TYPE));
+    starpu_vector_data_register(&_handle_arr, NDIM, (uintptr_t) _arr, N, sizeof(TYPE));
 
     double start, end;
     start = starpu_timing_now();
@@ -124,13 +132,25 @@ int main(void) {
         
         // task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS);
 		// task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS); // start_dim0, end_dim0, start_dim1, end_dim1...
-        task->handles[0] = starpu_data_get_sub_data(_handle_arr, b, NBLOCKS);
+        task->handles[0] = starpu_data_get_sub_data(&_handle_arr, b, NBLOCKS);
+        task->version_req[0] = 0;
+        //print task handle
 
         task->tag_id = b;
 
         starpu_task_submit(task); // add the task to the task list
 
     }
+
+    // Second task to test sub_handle finding
+    struct starpu_task* task = starpu_task_create();
+    task->cl = &increment_cl;
+    task->cl_arg = &_alpha;
+    task->cl_arg_size = sizeof(_alpha);
+    task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 3, NBLOCKS);
+    task->version_req[3] = 1;
+    task->tag_id = 3;
+    starpu_task_submit(task);
 
     starpu_task_wait_for_all(); // executes all the tasks in the task list
 
@@ -141,6 +161,11 @@ int main(void) {
     starpu_shutdown();
 
     printf("Time elapsed: %.2fus\n", timing);
+
+    for (int i = 0; i < N; i++) {
+        printf("%.0f", _arr[i]);
+    }
+    printf("\n");
 
     return exit_value;
 }
