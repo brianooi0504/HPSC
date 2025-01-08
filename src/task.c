@@ -75,5 +75,24 @@ void starpu_task_run(struct starpu_task* task) {
     struct starpu_codelet* cl = task->cl;
 
     starpu_cpu_func_t func = cl->cpu_funcs[0];
-    func((void *) task->handles[0]->user_data, task->cl_arg);
+
+    int version_req = task->version_req[0];
+    struct starpu_data_handle* handle = task->handles[0];
+
+    //print version_req and exec_version
+    printf("Version req: %d\n", version_req);
+    printf("Handle exec version: %d\n", handle->version_exec);
+
+    // Check data with version, while version_req is higher than exec, wait for the data to be ready
+    while (handle->version_exec < version_req) {
+        // Wait for the data to be ready
+        printf("Waiting for data to be ready\n");
+    }
+
+    func((void *) handle->user_data, task->cl_arg);
+
+    handle->version_exec++;
+
+    //print handle exec version
+    printf("Handle exec version: %d\n", handle->version_exec);
 }

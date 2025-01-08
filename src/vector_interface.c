@@ -48,8 +48,8 @@ struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* p
     sub_handle->nx = parent_handle->nx / num_blocks;
     sub_handle->elem_size = parent_handle->elem_size;
     sub_handle->user_data = (void*)((uintptr_t)parent_handle->user_data + offset);
-    sub_handle->version = parent_handle->version;
-    sub_handle->exec_version = parent_handle->exec_version;
+    sub_handle->version_req = parent_handle->version_req;
+    sub_handle->version_exec = parent_handle->version_exec;
     sub_handle->parent_data_handle = parent_handle;
     sub_handle->tag_id = block_index;
 

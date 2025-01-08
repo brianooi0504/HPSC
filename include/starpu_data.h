@@ -12,8 +12,8 @@ enum starpu_data_access_mode {
 struct starpu_data_handle {
     enum starpu_data_access_mode current_mode;
     unsigned dimensions;
-    int version;
-    int exec_version;
+    int version_req;
+    int version_exec;
     size_t nx;
     size_t elem_size;
     void* user_data;

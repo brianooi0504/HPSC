@@ -42,8 +42,8 @@ void starpu_data_handle_list_init(struct starpu_data_handle_list *list) {
 void starpu_data_handle_init(struct starpu_data_handle *handle) {
     handle->current_mode = STARPU_RW;
     handle->dimensions = 0;
-    handle->version = 0;
-    handle->exec_version = 0;
+    handle->version_req = -1;
+    handle->version_exec = 0;
     handle->nx = 0;
     handle->elem_size = 0;
     handle->user_data = NULL;

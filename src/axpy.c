@@ -133,8 +133,8 @@ int main(void) {
         // task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS);
 		// task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS); // start_dim0, end_dim0, start_dim1, end_dim1...
         task->handles[0] = starpu_data_get_sub_data(&_handle_arr, b, NBLOCKS);
-        task->version_req[0] = 0;
-        //print task handle
+        task->version_req[0] = task->handles[0]->version_req + 1;
+        task->handles[0]->version_req++;
 
         task->tag_id = b;
 
@@ -148,7 +148,8 @@ int main(void) {
     task->cl_arg = &_alpha;
     task->cl_arg_size = sizeof(_alpha);
     task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 3, NBLOCKS);
-    task->version_req[3] = 1;
+    task->version_req[0] = task->handles[0]->version_req + 1;
+    task->handles[0]->version_req++;
     task->tag_id = 3;
     starpu_task_submit(task);
 
