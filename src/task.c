@@ -1,5 +1,4 @@
-#include <string.h>
-#include "starpu.h"
+#include <string.h>z
 
 struct starpu_task* starpu_task_create(void) {
     struct starpu_task* task;

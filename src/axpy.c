@@ -147,10 +147,10 @@ int main(void) {
     task->cl = &increment_cl;
     task->cl_arg = &_alpha;
     task->cl_arg_size = sizeof(_alpha);
-    task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 3, NBLOCKS);
+    task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
     task->version_req[0] = task->handles[0]->version_req + 1;
     task->handles[0]->version_req++;
-    task->tag_id = 3;
+    task->tag_id = 1;
     starpu_task_submit(task);
 
     starpu_task_wait_for_all(); // executes all the tasks in the task list
