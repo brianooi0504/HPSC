@@ -49,6 +49,7 @@ struct starpu_task* starpu_task_get(void) {
 struct starpu_task* starpu_task_read(void) {
     struct starpu_task* t = malloc(sizeof(struct starpu_task));
     read(worker_pipe[0], t->cl, sizeof(struct starpu_codelet));
+    printf("cl: %p", t->cl);
     read(worker_pipe[0], t->handles[0], sizeof(struct starpu_data_handle));
     read(worker_pipe[0], t->handles[1], sizeof(struct starpu_data_handle));
 
@@ -84,8 +85,8 @@ void starpu_task_read_and_run(void) {
     struct starpu_task* cur;
 
     while (1) {
-        printf("CHILD PROCESS %d: waiting for task\n", getpid());
         cur = starpu_task_read();
+        printf("CHILD PROCESS %d: read task\n", getpid());
 
         if (cur) {
             starpu_task_run(cur);
@@ -95,10 +96,11 @@ void starpu_task_read_and_run(void) {
 
 void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode) {
     if (mode == LOCAL_PROCESS) {
+        printf("Task spawn\n");
         write(worker_pipe[1], task->cl, sizeof(struct starpu_codelet));
+        printf("cl: %p\n", task->cl);
         write(worker_pipe[1], task->handles[0], sizeof(struct starpu_data_handle));
         write(worker_pipe[1], task->handles[1], sizeof(struct starpu_data_handle));        
-        
     }
 }
 
@@ -120,7 +122,9 @@ void starpu_task_wait_and_spawn(void) {
 }
 
 void starpu_task_run(struct starpu_task* task) {
+    printf("Running task\n");
     struct starpu_codelet* cl = task->cl;
+    printf("Task cl: %p\n", cl);
 
     starpu_cpu_func_t func = cl->cpu_funcs[0];
 

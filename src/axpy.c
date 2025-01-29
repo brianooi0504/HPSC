@@ -153,7 +153,7 @@ int main(void) {
     task->tag_id = 1;
     starpu_task_submit(task);
 
-    starpu_task_wait_for_all(); // executes all the tasks in the task list
+    starpu_task_wait_and_spawn(); // executes all the tasks in the task list
 
     end = starpu_timing_now();
     double timing = end - start; // us (microsecs)
