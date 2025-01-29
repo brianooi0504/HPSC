@@ -168,5 +168,7 @@ int main(void) {
     }
     printf("\n");
 
+    sleep(5);
+
     return exit_value;
 }

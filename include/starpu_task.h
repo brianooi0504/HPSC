@@ -33,6 +33,11 @@ enum starpu_task_status {
     TASK_FINISHED, // finished executing
 };
 
+enum starpu_task_spawn_mode {
+    LOCAL,
+    LOCAL_PROCESS,
+};
+
 struct starpu_codelet {
     starpu_cpu_func_t cpu_funcs[STARPU_MAXIMPLEMENTATIONS];
     const char *cpu_funcs_name[STARPU_MAXIMPLEMENTATIONS];
@@ -68,5 +73,10 @@ void starpu_task_list_init(struct starpu_task_list *list);
 
 void starpu_task_wait_for_all(void);
 void starpu_task_run(struct starpu_task* task);
+
+void starpu_task_read_and_run(void);
+void starpu_task_wait_and_spawn(void);
+struct starpu_task* starpu_task_read(void);
+void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode);
 
 #endif /* __STARPU_TASK_H__ */

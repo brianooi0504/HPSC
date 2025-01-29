@@ -1,4 +1,5 @@
-#include <string.h>z
+#include <string.h>
+#include "starpu.h"
 
 struct starpu_task* starpu_task_create(void) {
     struct starpu_task* task;
@@ -45,6 +46,15 @@ struct starpu_task* starpu_task_get(void) {
    return next;
 }
 
+struct starpu_task* starpu_task_read(void) {
+    struct starpu_task* t = malloc(sizeof(struct starpu_task));
+    read(worker_pipe[0], t->cl, sizeof(struct starpu_codelet));
+    read(worker_pipe[0], t->handles[0], sizeof(struct starpu_data_handle));
+    read(worker_pipe[0], t->handles[1], sizeof(struct starpu_data_handle));
+
+    return t;
+}
+
 void starpu_task_list_init(struct starpu_task_list *list) {
     pthread_mutex_init(&list->lock, NULL);
     list->head = NULL;
@@ -65,6 +75,45 @@ void starpu_task_wait_for_all(void) {
             starpu_task_run(cur);
         } else {
             break;
+        }
+    }
+
+}
+
+void starpu_task_read_and_run(void) {
+    struct starpu_task* cur;
+
+    while (1) {
+        printf("CHILD PROCESS %d: waiting for task\n", getpid());
+        cur = starpu_task_read();
+
+        if (cur) {
+            starpu_task_run(cur);
+        }
+    }
+}
+
+void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode) {
+    if (mode == LOCAL_PROCESS) {
+        write(worker_pipe[1], task->cl, sizeof(struct starpu_codelet));
+        write(worker_pipe[1], task->handles[0], sizeof(struct starpu_data_handle));
+        write(worker_pipe[1], task->handles[1], sizeof(struct starpu_data_handle));        
+        
+    }
+}
+
+void starpu_task_wait_and_spawn(void) {
+    struct starpu_task* cur;
+
+    while (1) {
+        pthread_mutex_lock(&task_list.lock);
+
+        cur = starpu_task_get();
+
+        pthread_mutex_unlock(&task_list.lock);
+
+        if (cur) {
+            starpu_task_spawn(cur, LOCAL_PROCESS);
         }
     }
 
