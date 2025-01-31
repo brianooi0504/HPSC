@@ -7,26 +7,27 @@ int starpu_init(void) {
     starpu_task_list_init(task_list);
     starpu_data_handle_list_init(data_handle_list);
 
-    starpu_create_worker();
-    starpu_create_worker();
+    if (pipe(worker_pipe) == -1) {
+        exit(-1);
+    }
 
+    starpu_create_worker();
+    // starpu_create_worker();
+
+    close(worker_pipe[0]);
     printf("StarPU initiailized\n");
 
     return 0;
 }
 
 void starpu_create_worker(void) {
-    if (pipe(worker_pipe) == -1) {
-        exit(-1);
-    }
-
     pid_t pid = fork();
 
     if(pid == 0) {
         /* child process */
         printf("CHILD PROCESS %d: created\n", getpid());
         starpu_task_read_and_run();
-        exit(0);
+        close(worker_pipe[1]);
     }
 }
 

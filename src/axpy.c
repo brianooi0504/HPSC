@@ -143,15 +143,15 @@ int main(void) {
     }
 
     // Second task to test sub_handle finding
-    struct starpu_task* task = starpu_task_create();
-    task->cl = &increment_cl;
-    task->cl_arg = &_alpha;
-    task->cl_arg_size = sizeof(_alpha);
-    task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
-    task->version_req[0] = task->handles[0]->version_req + 1;
-    task->handles[0]->version_req++;
-    task->tag_id = 1;
-    starpu_task_submit(task);
+    // struct starpu_task* task = starpu_task_create();
+    // task->cl = &increment_cl;
+    // task->cl_arg = &_alpha;
+    // task->cl_arg_size = sizeof(_alpha);
+    // task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
+    // task->version_req[0] = task->handles[0]->version_req + 1;
+    // task->handles[0]->version_req++;
+    // task->tag_id = 1;
+    // starpu_task_submit(task);
 
     starpu_task_wait_and_spawn(); // executes all the tasks in the task list
 
