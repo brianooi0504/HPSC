@@ -10,22 +10,6 @@
 
 typedef void (*starpu_cpu_func_t) (void **, void *);
 
-// typedef struct {
-//     int type;
-//     int value;
-// } task_param;
-
-// typedef struct {
-//     int num_params;
-//     task_param* params;
-// } task_data;
-
-// typedef struct {
-//     void* f;
-//     int status;
-//     task_data* data;
-// } task;
-
 enum starpu_task_status {
     TASK_INIT, // initialized
     TASK_READY, // ready for execution

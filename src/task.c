@@ -43,7 +43,7 @@ struct starpu_task* starpu_task_get(void) {
 
     pthread_mutex_unlock(&task_list.lock);
 
-   return next;
+    return next;
 }
 
 void starpu_task_list_init(struct starpu_task_list *list) {
@@ -74,22 +74,10 @@ void starpu_task_wait_for_all(void) {
 struct starpu_task* starpu_task_read(void) {
     struct starpu_task* t = malloc(sizeof(struct starpu_task));
     struct starpu_data_handle* h = malloc(sizeof(struct starpu_data_handle));
-    float* user_data  = malloc(8*sizeof(float));
-    float arg;
-    size_t udata_size;
 
-    read(worker_pipe[0], &t->version_req[0], sizeof(int));
-    read(worker_pipe[0], &t->cl_arg_size, sizeof(size_t));
-    read(worker_pipe[0], &arg, t->cl_arg_size);
-    read(worker_pipe[0], &h->version_exec, sizeof(int));
-    read(worker_pipe[0], &udata_size, sizeof(size_t));
-    
-    for (int i = 0; i < 8; i++) {
-        read(worker_pipe[0], &user_data[i], sizeof(float));
-    }
-
-    h->user_data = user_data;
-    t->cl_arg = &arg;
+    read(worker_pipe[0], t, sizeof(struct starpu_task));
+    read(worker_pipe[0], h, sizeof(struct starpu_data_handle));
+   
     t->handles[0] = h;
 
     return t;
@@ -111,19 +99,9 @@ void starpu_task_read_and_run(void) {
 void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode) {
     if (mode == LOCAL_PROCESS) {
         printf("Task spawn\n");
-        size_t udata_size = (task->handles[0]->nx)*(task->handles[0]->elem_size);
 
-        // cl -> cpu_funcs
-        write(worker_pipe[1], &task->version_req[0], sizeof(int));
-        write(worker_pipe[1], &task->cl_arg_size, sizeof(size_t));
-        write(worker_pipe[1], (float*) task->cl_arg, task->cl_arg_size);
-        write(worker_pipe[1], &task->handles[0]->version_exec, sizeof(int));
-        write(worker_pipe[1], &udata_size, sizeof(size_t));
-
-        for (int i = 0; i < 8; i++) {
-            write(worker_pipe[1], &task->handles[0]->user_data[i], sizeof(float));
-        }
-        
+        write(worker_pipe[1], task, sizeof(struct starpu_task));
+        write(worker_pipe[1], task->handles[0], sizeof(struct starpu_data_handle));
     }
 }
 
@@ -146,9 +124,9 @@ void starpu_task_wait_and_spawn(void) {
 
 void starpu_task_run(struct starpu_task* task) {
     printf("Running task\n");
-    // struct starpu_codelet* cl = task->cl;
+    struct starpu_codelet* cl = task->cl;
 
-    // starpu_cpu_func_t func = cl->cpu_funcs[0];
+    starpu_cpu_func_t func = cl->cpu_funcs[0];
 
     int version_req = task->version_req[0];
     struct starpu_data_handle* handle = task->handles[0];
@@ -164,6 +142,7 @@ void starpu_task_run(struct starpu_task* task) {
     }
 
     // func((void *) handle->user_data, task->cl_arg);
+    func(NULL, task->cl_arg);
 
     handle->version_exec++;
 
