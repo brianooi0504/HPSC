@@ -11,6 +11,22 @@ int starpu_init(void) {
         exit(-1);
     }
 
+    shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+
+    if (shm_fd == -1) {
+        perror("shm_open");
+        exit(EXIT_FAILURE);
+    }
+
+    ftruncate(shm_fd, SHM_SIZE);
+
+    shared_data = (TYPE *)mmap(0, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+
+    if (shared_data == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
     starpu_create_worker();
     // starpu_create_worker();
 
@@ -32,5 +48,7 @@ void starpu_create_worker(void) {
 }
 
 void starpu_shutdown(void) {
+    close(shm_fd);
+
     printf("StarPU shut down\n");
 }

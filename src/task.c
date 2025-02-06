@@ -1,13 +1,22 @@
 #include <string.h>
 #include "starpu.h"
 
-struct starpu_task* starpu_task_create(void) {
+struct starpu_task* starpu_task_create(
+    struct starpu_codelet* cl,
+    void* cl_arg,
+    size_t cl_arg_size,
+    uint64_t tag_id
+) {
     struct starpu_task* task;
 
     task = malloc(sizeof(struct starpu_task));
 
     memset(task, 0, sizeof(struct starpu_task));
 
+    task->cl = cl;
+    task->cl_arg = cl_arg;
+    task->cl_arg_size = cl_arg_size;
+    task->tag_id = tag_id;
     task->next_task = NULL;
 
     return task;
@@ -76,9 +85,14 @@ struct starpu_task* starpu_task_read(void) {
     struct starpu_data_handle* h = malloc(sizeof(struct starpu_data_handle));
 
     read(worker_pipe[0], t, sizeof(struct starpu_task));
-    read(worker_pipe[0], h, sizeof(struct starpu_data_handle));
-   
-    t->handles[0] = h;
+
+    for (int i = 0; i < t->cl->nbuffers; i++) {
+        read(worker_pipe[0], h, sizeof(struct starpu_data_handle));
+
+        memcpy(h->user_data, shared_data, h->nx * h->elem_size);
+
+        t->handles[i] = h;
+    }
 
     return t;
 }
@@ -101,7 +115,13 @@ void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mod
         printf("Task spawn\n");
 
         write(worker_pipe[1], task, sizeof(struct starpu_task));
-        write(worker_pipe[1], task->handles[0], sizeof(struct starpu_data_handle));
+
+        for (int i = 0; i < task->cl->nbuffers; i++) {
+            write(worker_pipe[1], task->handles[i], sizeof(struct starpu_data_handle));
+            
+            memcpy(shared_data, task->handles[0]->user_data, task->handles[0]->nx * task->handles[0]->elem_size);
+        }
+     
     }
 }
 
@@ -141,8 +161,7 @@ void starpu_task_run(struct starpu_task* task) {
         printf("Waiting for data to be ready\n");
     }
 
-    // func((void *) handle->user_data, task->cl_arg);
-    func(NULL, task->cl_arg);
+    func((void *) handle->user_data, task->cl_arg);
 
     handle->version_exec++;
 

@@ -4,8 +4,6 @@
 #include <math.h>
 #include "starpu.h"
 
-#define TYPE float
-
 // #define N (16*1024*1024)
 #define N 64
 
@@ -32,23 +30,24 @@ void axpy_cpu(void *descr[], void *arg)
 
 void increment(void *array[], void* arg) {
     printf("Running increment function\n");
+    TYPE alpha = *((TYPE *)arg);
     TYPE* block = (TYPE *) array;
     int block_size = N/NBLOCKS;
 
     printf("Before: ");
     for (int i = 0; i < block_size; i++) {
-        printf(" %.0f ", block[i]);
+        printf(" %.2f ", block[i]);
     }
     printf("\n");
     
 
     for (int i = 0; i < block_size; i++) {
-        block[i]++;
+        block[i] += alpha;
     }
 
     printf("After:  ");
     for (int i = 0; i < block_size; i++) {
-        printf(" %.0f ", block[i]);
+        printf(" %.2f ", block[i]);
     }
     printf("\n");
 }
@@ -108,12 +107,7 @@ int main(void) {
 
     unsigned b;
     for (b = 0; b < NBLOCKS; b++) {
-        struct starpu_task* task = starpu_task_create();
-
-        task->cl = &increment_cl;
-
-        task->cl_arg = &_alpha;
-		task->cl_arg_size = sizeof(_alpha);
+        struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), b);
         
         // task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS);
 		// task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS); // start_dim0, end_dim0, start_dim1, end_dim1...
@@ -121,21 +115,15 @@ int main(void) {
         // task->version_req[0] = task->handles[0]->version_req + 1;
         // task->handles[0]->version_req++;
 
-        task->tag_id = b;
-
         // starpu_task_submit(task); // add the task to the task list
 
     }
 
     // Second task to test sub_handle finding
-    struct starpu_task* task = starpu_task_create();
-    task->cl = &axpy_cl;
-    task->cl_arg = &_alpha;
-    task->cl_arg_size = sizeof(_alpha);
+    struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
     task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
     task->version_req[0] = task->handles[0]->version_req + 1;
     task->handles[0]->version_req++;
-    task->tag_id = 1;
     starpu_task_submit(task);
 
     starpu_task_wait_and_spawn(); // executes all the tasks in the task list

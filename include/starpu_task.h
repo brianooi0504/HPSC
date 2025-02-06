@@ -49,7 +49,13 @@ struct starpu_task_list {
 
 void starpu_codelet_init(void);
 
-struct starpu_task* starpu_task_create(void);
+struct starpu_task* starpu_task_create(
+    struct starpu_codelet* cl,
+    void* cl_arg,
+    size_t cl_arg_size,
+    uint64_t tag_id
+);
+
 void starpu_task_submit(struct starpu_task* task);
 struct starpu_task* starpu_task_get(void);
 
