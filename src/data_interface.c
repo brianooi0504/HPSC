@@ -47,6 +47,7 @@ void starpu_data_handle_init(struct starpu_data_handle *handle) {
     handle->nx = 0;
     handle->elem_size = 0;
     handle->user_data = NULL;
+    handle->user_data_shm = NULL;
     handle->next_data_handle = NULL;
     handle->parent_data_handle = NULL;
     handle->children_data_handles = NULL;

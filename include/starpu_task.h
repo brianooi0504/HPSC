@@ -39,6 +39,7 @@ struct starpu_task {
     int priority;
     enum starpu_task_status status;
     struct starpu_task* next_task;
+    struct starpu_task* self_id;
 };
 
 struct starpu_task_list {

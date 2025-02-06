@@ -17,6 +17,7 @@ struct starpu_data_handle {
     size_t nx;
     size_t elem_size;
     void* user_data;
+    void* user_data_shm;
     struct starpu_data_handle* next_data_handle;
     struct starpu_data_handle* parent_data_handle;
     struct starpu_data_handle** children_data_handles;

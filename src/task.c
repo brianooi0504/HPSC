@@ -1,4 +1,3 @@
-#include <string.h>
 #include "starpu.h"
 
 struct starpu_task* starpu_task_create(
@@ -89,8 +88,6 @@ struct starpu_task* starpu_task_read(void) {
     for (int i = 0; i < t->cl->nbuffers; i++) {
         read(worker_pipe[0], h, sizeof(struct starpu_data_handle));
 
-        memcpy(h->user_data, shared_data, h->nx * h->elem_size);
-
         t->handles[i] = h;
     }
 
@@ -114,12 +111,18 @@ void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mod
     if (mode == LOCAL_PROCESS) {
         printf("Task spawn\n");
 
+        task->self_id = task;
+
         write(worker_pipe[1], task, sizeof(struct starpu_task));
 
         for (int i = 0; i < task->cl->nbuffers; i++) {
+            TYPE* user_data_shm = (TYPE *) shm_alloc(allocator, task->handles[0]->nx * task->handles[0]->elem_size);
+
+            memcpy(user_data_shm, task->handles[i]->user_data, task->handles[i]->nx * task->handles[i]->elem_size);
+
+            task->handles[i]->user_data_shm = user_data_shm;
+
             write(worker_pipe[1], task->handles[i], sizeof(struct starpu_data_handle));
-            
-            memcpy(shared_data, task->handles[0]->user_data, task->handles[0]->nx * task->handles[0]->elem_size);
         }
      
     }
@@ -159,11 +162,14 @@ void starpu_task_run(struct starpu_task* task) {
     while (handle->version_exec < version_req) {
         // Wait for the data to be ready
         printf("Waiting for data to be ready\n");
+        sleep(2);
     }
 
-    func((void *) handle->user_data, task->cl_arg);
+    func((void *) handle->user_data_shm, task->cl_arg);
 
     handle->version_exec++;
+
+    write(notification_pipe[1], task, sizeof(struct starpu_task));
 
     //print handle exec version
     printf("Handle exec version: %d\n", handle->version_exec);
