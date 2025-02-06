@@ -108,6 +108,19 @@ void starpu_task_read_and_run(void) {
 }
 
 void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode) {
+
+    int version_req = task->version_req[0];
+    struct starpu_data_handle* handle = task->handles[0];
+
+    // Check data with version, while version_req is higher than exec, wait for the data to be ready
+    while (handle->version_exec < version_req) {
+        // Wait for the data to be ready
+        printf("Waiting for data to be ready\n");
+        sleep(1);
+    }
+
+    printf("%d %d \n", handle->version_exec, version_req);
+
     if (mode == LOCAL_PROCESS) {
         printf("Task spawn\n");
 
@@ -151,26 +164,9 @@ void starpu_task_run(struct starpu_task* task) {
 
     starpu_cpu_func_t func = cl->cpu_funcs[0];
 
-    int version_req = task->version_req[0];
     struct starpu_data_handle* handle = task->handles[0];
-
-    //print version_req and exec_version
-    printf("Version req: %d\n", version_req);
-    printf("Handle exec version: %d\n", handle->version_exec);
-
-    // Check data with version, while version_req is higher than exec, wait for the data to be ready
-    while (handle->version_exec < version_req) {
-        // Wait for the data to be ready
-        printf("Waiting for data to be ready\n");
-        sleep(2);
-    }
 
     func((void *) handle->user_data_shm, task->cl_arg);
 
-    handle->version_exec++;
-
-    write(notification_pipe[1], task, sizeof(struct starpu_task));
-
-    //print handle exec version
-    printf("Handle exec version: %d\n", handle->version_exec);
+    write(notification_pipe[1], &task->self_id, sizeof(struct starpu_task*));
 }

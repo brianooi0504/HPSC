@@ -2,34 +2,28 @@
 
 // pthread function to listen to notification pipe
 void* notification_listener(void *arg) {
-    struct starpu_task* recv_task = malloc(sizeof(struct starpu_task));
-    struct starpu_task* task = NULL;
-
     while (1) {
-        read(notification_pipe[0], recv_task, sizeof(struct starpu_task));
+        struct starpu_task* ret_task;
+        read(notification_pipe[0], &ret_task, sizeof(struct starpu_task*));
 
-        task = recv_task->self_id;
-
-        if (!task) {
+        if (!ret_task) {
             perror("Notification for task failed");
             exit(-1);
         }
         
-        task->status = TASK_FINISHED;
+        for (int i = 0; i < ret_task->cl->nbuffers; i++) {
+            memcpy(ret_task->handles[i]->user_data, ret_task->handles[i]->user_data_shm, ret_task->handles[i]->nx * ret_task->handles[i]->elem_size);
 
+            ret_task->handles[i]->version_exec++;
 
-        for (int i = 0; i < task->cl->nbuffers; i++) {
-            memcpy(task->handles[i]->user_data, task->handles[i]->user_data_shm, task->handles[i]->nx * task->handles[i]->elem_size);
-
-            task->handles[i]->version_exec++;
+            // shm_free(allocator, ret_task->handles[i]->user_data_shm);
+            ret_task->handles[i]->user_data_shm = NULL;
         }
 
-        for (int i = 0; i < task->cl->nbuffers; i++) {
-            shm_free(allocator, recv_task->handles[i]->user_data_shm);
-            task->handles[i]->user_data_shm = NULL;
-        }
-
+        printf("Checkpoint\n");
     }
+
+    return NULL;
 }
 
 int starpu_init(void) {
@@ -48,12 +42,13 @@ int starpu_init(void) {
     }
 
     shm_init(&allocator);
+    // notif = 0;
 
     pthread_t listener;
     pthread_create(&listener, NULL, notification_listener, NULL);
 
     starpu_create_worker();
-    // starpu_create_worker();
+    starpu_create_worker();
 
     close(worker_pipe[0]);
     close(notification_pipe[1]);
