@@ -9,7 +9,7 @@
 // #define N (16*1024*1024)
 #define N 64
 
-#define PRINTARRAY 0
+#define PRINTARRAY 1
 
 #define NBLOCKS	8
 #define NDIM 1
@@ -90,7 +90,7 @@ int main(void) {
     //     _vec_y[i] = 4.0f;
     // }
 
-    _arr = malloc(N*sizeof(TYPE));
+    _arr = starpu_malloc(N*sizeof(TYPE));
 
     for (int i = 0; i < N; i++) {
         _arr[i] = 0.0f;
@@ -133,18 +133,22 @@ int main(void) {
     // Second task to test sub_handle finding
     struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
     task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
-    task->version_req[0] = task->handles[0]->version_req + 1;
-    task->handles[0]->version_req++;
+    task->version_req[0] = 2;
+    task->handles[0]->version_req = 2;
     starpu_task_submit(task);
+    task_spawn_counter++;
+
+    struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
+    task2->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
+    task2->version_req[0] = 1;
+    task2->handles[0]->version_req = 1;
+    starpu_task_submit(task2);
     task_spawn_counter++;
 
     starpu_task_wait_and_spawn(); // executes all the tasks in the task list
 
     end = starpu_timing_now();
     double timing = end - start; // us (microsecs)
-
-    /* Stop StarPU */
-    starpu_shutdown();
 
     printf("Time elapsed: %.2fus\n", timing);
 
@@ -155,5 +159,7 @@ int main(void) {
         printf("\n");
     }
 
+    /* Stop StarPU */
+    starpu_shutdown();
     return exit_value;
 }

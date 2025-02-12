@@ -13,6 +13,7 @@ typedef void (*starpu_cpu_func_t) (void **, void *);
 enum starpu_task_status {
     TASK_INIT, // initialized
     TASK_READY, // ready for execution
+    TASK_ASSIGNED, // assigned to a worker
     TASK_RUNNING, // running on some worker
     TASK_FINISHED, // finished executing
 };

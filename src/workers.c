@@ -12,13 +12,12 @@ void* notification_listener(void *arg) {
         }
         
         for (int i = 0; i < ret_task->cl->nbuffers; i++) {
-            memcpy(ret_task->handles[i]->user_data, ret_task->handles[i]->user_data_shm, ret_task->handles[i]->nx * ret_task->handles[i]->elem_size);
-
             ret_task->handles[i]->version_exec++;
 
             // shm_free(allocator, ret_task->handles[i]->user_data_shm);
-            ret_task->handles[i]->user_data_shm = NULL;
         }
+
+        ret_task->status = TASK_FINISHED;
 
         task_completion_counter++;
         printf("Checkpoint\n");
@@ -46,7 +45,6 @@ int starpu_init(void) {
     }
 
     shm_init(&allocator);
-    // notif = 0;
 
     pthread_t listener;
     pthread_create(&listener, NULL, notification_listener, NULL);

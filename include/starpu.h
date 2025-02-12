@@ -16,7 +16,7 @@
 #include "starpu_task.h"
 
 #define SHM_NAME "/shm_starpu"
-#define SHM_SIZE 4096
+#define SHM_SIZE (1 << 10)
 
 #define TYPE float
 

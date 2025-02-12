@@ -47,10 +47,13 @@ void starpu_data_handle_init(struct starpu_data_handle *handle) {
     handle->nx = 0;
     handle->elem_size = 0;
     handle->user_data = NULL;
-    handle->user_data_shm = NULL;
     handle->next_data_handle = NULL;
     handle->parent_data_handle = NULL;
     handle->children_data_handles = NULL;
     handle->num_children = 0;
     handle->tag_id = 0;
+}
+
+void* starpu_malloc(size_t t) {
+    return (TYPE *) shm_alloc(allocator, t);
 }
