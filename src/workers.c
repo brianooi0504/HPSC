@@ -20,6 +20,7 @@ void* notification_listener(void *arg) {
             ret_task->handles[i]->user_data_shm = NULL;
         }
 
+        task_completion_counter++;
         printf("Checkpoint\n");
     }
 
@@ -32,6 +33,9 @@ int starpu_init(void) {
 
     starpu_task_list_init(task_list);
     starpu_data_handle_list_init(data_handle_list);
+
+    task_completion_counter = 0;
+    task_spawn_counter = 0;
 
     if (pipe(worker_pipe) == -1) {
         exit(-1);

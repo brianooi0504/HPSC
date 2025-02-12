@@ -1,3 +1,5 @@
+// scalability comparison btwn diff num of processes
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -6,6 +8,8 @@
 
 // #define N (16*1024*1024)
 #define N 64
+
+#define PRINTARRAY 0
 
 #define NBLOCKS	8
 #define NDIM 1
@@ -34,22 +38,26 @@ void increment(void *array[], void* arg) {
     TYPE* block = (TYPE *) array;
     int block_size = N/NBLOCKS;
 
-    printf("Before: ");
-    for (int i = 0; i < block_size; i++) {
-        printf(" %.2f ", block[i]);
+    if (PRINTARRAY) {
+        printf("Before: ");
+        for (int i = 0; i < block_size; i++) {
+            printf(" %.2f ", block[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
-    
 
     for (int i = 0; i < block_size; i++) {
         block[i] += alpha;
     }
 
-    printf("After:  ");
-    for (int i = 0; i < block_size; i++) {
-        printf(" %.2f ", block[i]);
+    if (PRINTARRAY) {
+        printf("After:  ");
+        for (int i = 0; i < block_size; i++) {
+            printf(" %.2f ", block[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
+    
 }
 
 static struct starpu_codelet axpy_cl = {
@@ -92,10 +100,12 @@ int main(void) {
         _arr[i] = 1.0f;
     }
 
-    for (int i = 0; i < N; i++) {
-        printf("%.0f", _arr[i]);
+    if (PRINTARRAY) {
+        for (int i = 0; i < N; i++) {
+            printf("%.0f", _arr[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
 
     /* Declare the data to StarPU */
 	// starpu_vector_data_register(&_handle_x, NDIM, (uintptr_t)_vec_x, N, sizeof(TYPE));
@@ -116,6 +126,7 @@ int main(void) {
         task->handles[0]->version_req++;
 
         starpu_task_submit(task); // add the task to the task list
+        task_spawn_counter++;
 
     }
 
@@ -125,6 +136,7 @@ int main(void) {
     task->version_req[0] = task->handles[0]->version_req + 1;
     task->handles[0]->version_req++;
     starpu_task_submit(task);
+    task_spawn_counter++;
 
     starpu_task_wait_and_spawn(); // executes all the tasks in the task list
 
@@ -136,12 +148,12 @@ int main(void) {
 
     printf("Time elapsed: %.2fus\n", timing);
 
-    for (int i = 0; i < N; i++) {
-        printf("%.0f", _arr[i]);
+    if (PRINTARRAY) {
+        for (int i = 0; i < N; i++) {
+            printf("%.0f", _arr[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
-
-    sleep(5);
 
     return exit_value;
 }

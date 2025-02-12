@@ -39,6 +39,7 @@ struct starpu_task* starpu_task_get(void) {
 
     pthread_mutex_lock(&task_list.lock);
 
+    // check data dependencies here
     if (task_list.head) {
         next = task_list.head;
 
@@ -119,8 +120,6 @@ void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mod
         sleep(1);
     }
 
-    printf("%d %d \n", handle->version_exec, version_req);
-
     if (mode == LOCAL_PROCESS) {
         printf("Task spawn\n");
 
@@ -131,7 +130,7 @@ void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mod
         for (int i = 0; i < task->cl->nbuffers; i++) {
             TYPE* user_data_shm = (TYPE *) shm_alloc(allocator, task->handles[0]->nx * task->handles[0]->elem_size);
 
-            memcpy(user_data_shm, task->handles[i]->user_data, task->handles[i]->nx * task->handles[i]->elem_size);
+            memcpy(user_data_shm, task->handles[i]->user_data, task->handles[i]->nx * task->handles[i]->elem_size); // move to starpu_malloc
 
             task->handles[i]->user_data_shm = user_data_shm;
 
@@ -144,7 +143,7 @@ void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mod
 void starpu_task_wait_and_spawn(void) {
     struct starpu_task* cur;
 
-    while (1) {
+    while (task_completion_counter < task_spawn_counter) {
         pthread_mutex_lock(&task_list.lock);
 
         cur = starpu_task_get();

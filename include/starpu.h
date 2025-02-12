@@ -41,6 +41,8 @@ void starpu_create_worker(void);
 int worker_pipe[2];
 int notification_pipe[2];
 int shm_fd;
+int task_completion_counter;
+int task_spawn_counter;
 
 TYPE* shared_data;
 shm_allocator_t *allocator;
