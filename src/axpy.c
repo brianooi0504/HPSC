@@ -1,13 +1,15 @@
+// scalability comparison btwn diff num of processes
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
 #include "starpu.h"
 
-#define TYPE float
-
 // #define N (16*1024*1024)
-#define N 32
+#define N 64
+
+#define PRINTARRAY 1
 
 #define NBLOCKS	8
 #define NDIM 1
@@ -28,22 +30,25 @@ void axpy_cpu(void *arrays[], void *arg)
 
     int block_size = N/NBLOCKS;
 
-    printf("Before: ");
-    for (int i = 0; i < block_size; i++) {
-        printf(" %.1f ", block_y[i]);
+    if (PRINTARRAY) {
+        printf("Before: ");
+        for (int i = 0; i < block_size; i++) {
+            printf(" %.2f ", block[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
-    
 
     for (int i = 0; i < block_size; i++) {
         block_y[i] = alpha*block_x[i] + block_y[i];
     }
 
-    printf("After:  ");
-    for (int i = 0; i < block_size; i++) {
-        printf(" %.1f ", block_y[i]);
+    if (PRINTARRAY) {
+        printf("After:  ");
+        for (int i = 0; i < block_size; i++) {
+            printf(" %.2f ", block[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
     
 }
 
@@ -89,12 +94,7 @@ int main(void) {
 
     unsigned b;
     for (b = 0; b < NBLOCKS; b++) {
-        struct starpu_task* task = starpu_task_create();
-
-        task->cl = &axpy_cl;
-
-        task->cl_arg = &_alpha;
-		task->cl_arg_size = sizeof(_alpha);
+        struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), b);
         
         task->handles[0] = starpu_data_get_sub_data(&_handle_x, b, NBLOCKS);
 		task->handles[1] = starpu_data_get_sub_data(&_handle_y, b, NBLOCKS); 
@@ -107,42 +107,40 @@ int main(void) {
         task->tag_id = b;
 
         starpu_task_submit(task); // add the task to the task list
+        task_spawn_counter++;
 
     }
 
     // Second task to test sub_handle finding
-    struct starpu_task* task = starpu_task_create();
-    task->cl = &axpy_cl;
-    task->cl_arg = &_alpha;
-    task->cl_arg_size = sizeof(_alpha);
-    task->handles[0] = starpu_data_get_sub_data(&_handle_x, 3, NBLOCKS);
-    task->handles[1] = starpu_data_get_sub_data(&_handle_y, 3, NBLOCKS);
-    task->version_req[0] = task->handles[0]->version_req + 1;
-    task->version_req[1] = task->handles[1]->version_req + 1;
-    task->handles[0]->version_req++;
-    task->handles[1]->version_req++;
-    task->tag_id = 3;
+    struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
+    task->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
+    task->version_req[0] = 2;
+    task->handles[0]->version_req = 2;
     starpu_task_submit(task);
+    task_spawn_counter++;
 
-    starpu_task_wait_for_all(); // executes all the tasks in the task list
+    struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
+    task2->handles[0] = starpu_data_get_sub_data(&_handle_arr, 1, NBLOCKS);
+    task2->version_req[0] = 1;
+    task2->handles[0]->version_req = 1;
+    starpu_task_submit(task2);
+    task_spawn_counter++;
+
+    starpu_task_wait_and_spawn(); // executes all the tasks in the task list
 
     end = starpu_timing_now();
     double timing = end - start; // us (microsecs)
 
-    /* Stop StarPU */
-    starpu_shutdown();
-
     printf("Time elapsed: %.2fus\n", timing);
 
-    for (int i = 0; i < N; i++) {
-        printf("%.1f ", _vec_x[i]);
+    if (PRINTARRAY) {
+        for (int i = 0; i < N; i++) {
+            printf("%.0f", _arr[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
 
-    for (int i = 0; i < N; i++) {
-        printf("%.1f ", _vec_y[i]);
-    }
-    printf("\n");
-
+    /* Stop StarPU */
+    starpu_shutdown();
     return exit_value;
 }

@@ -53,3 +53,7 @@ void starpu_data_handle_init(struct starpu_data_handle *handle) {
     handle->num_children = 0;
     handle->tag_id = 0;
 }
+
+void* starpu_malloc(size_t t) {
+    return (TYPE *) shm_alloc(allocator, t);
+}

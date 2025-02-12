@@ -10,27 +10,17 @@
 
 typedef void (*starpu_cpu_func_t) (void **, void *);
 
-// typedef struct {
-//     int type;
-//     int value;
-// } task_param;
-
-// typedef struct {
-//     int num_params;
-//     task_param* params;
-// } task_data;
-
-// typedef struct {
-//     void* f;
-//     int status;
-//     task_data* data;
-// } task;
-
 enum starpu_task_status {
     TASK_INIT, // initialized
     TASK_READY, // ready for execution
+    TASK_ASSIGNED, // assigned to a worker
     TASK_RUNNING, // running on some worker
     TASK_FINISHED, // finished executing
+};
+
+enum starpu_task_spawn_mode {
+    LOCAL,
+    LOCAL_PROCESS,
 };
 
 struct starpu_codelet {
@@ -50,6 +40,7 @@ struct starpu_task {
     int priority;
     enum starpu_task_status status;
     struct starpu_task* next_task;
+    struct starpu_task* self_id;
 };
 
 struct starpu_task_list {
@@ -60,7 +51,13 @@ struct starpu_task_list {
 
 void starpu_codelet_init(void);
 
-struct starpu_task* starpu_task_create(void);
+struct starpu_task* starpu_task_create(
+    struct starpu_codelet* cl,
+    void* cl_arg,
+    size_t cl_arg_size,
+    uint64_t tag_id
+);
+
 void starpu_task_submit(struct starpu_task* task);
 struct starpu_task* starpu_task_get(void);
 
@@ -68,5 +65,10 @@ void starpu_task_list_init(struct starpu_task_list *list);
 
 void starpu_task_wait_for_all(void);
 void starpu_task_run(struct starpu_task* task);
+
+void starpu_task_read_and_run(void);
+void starpu_task_wait_and_spawn(void);
+struct starpu_task* starpu_task_read(void);
+void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode);
 
 #endif /* __STARPU_TASK_H__ */
