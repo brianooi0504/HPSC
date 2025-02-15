@@ -16,7 +16,7 @@
 #include "starpu_task.h"
 
 #define SHM_NAME "/shm_starpu"
-#define SHM_SIZE (1 << 10)
+#define SHM_SIZE (1 << 30)
 
 #define TYPE float
 
@@ -37,6 +37,7 @@ typedef struct {
 int starpu_init(void);
 void starpu_shutdown(void);
 void starpu_create_worker(void);
+void starpu_check(void);
 
 int worker_pipe[2];
 int notification_pipe[2];

@@ -50,7 +50,7 @@ int starpu_init(void) {
     pthread_create(&listener, NULL, notification_listener, NULL);
 
     starpu_create_worker();
-    starpu_create_worker();
+    // starpu_create_worker();
 
     close(worker_pipe[0]);
     close(notification_pipe[1]);
@@ -65,13 +65,15 @@ void starpu_create_worker(void) {
     if(pid == 0) {
         /* child process */
         printf("CHILD PROCESS %d: created\n", getpid());
-        starpu_task_read_and_run();
         close(worker_pipe[1]);
         close(notification_pipe[0]);
+        starpu_task_read_and_run();
     }
 }
 
 void shm_init(shm_allocator_t **allocator) {
+    shm_unlink(SHM_NAME);
+
     shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
 
     if (shm_fd == -1) {
@@ -79,7 +81,10 @@ void shm_init(shm_allocator_t **allocator) {
         exit(-1);
     }
 
-    ftruncate(shm_fd, SHM_SIZE);
+    if (ftruncate(shm_fd, SHM_SIZE) == -1) {
+        perror("ftruncate failed");
+        exit(-1);
+    }
 
     shared_data = (TYPE *)mmap(0, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     
