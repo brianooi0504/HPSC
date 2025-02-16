@@ -23,7 +23,7 @@ struct starpu_data_handle* starpu_data_find_sub_data(struct starpu_data_handle* 
     return NULL;
 }
 
-struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* parent_handle, size_t block_index, size_t num_blocks) {
+struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* parent_handle, size_t block_index, size_t num_blocks, size_t n_dim) {
 
     struct starpu_data_handle* sub_handle;
 
@@ -37,7 +37,7 @@ struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* p
     size_t offset = block_index * nb_elements * parent_handle->elem_size;
 
     // Create a sub-handle
-   sub_handle = malloc(sizeof(struct starpu_data_handle));
+    sub_handle = malloc(sizeof(struct starpu_data_handle));
     if (!sub_handle) {
         fprintf(stderr, "Memory allocation failed in starpu_data_get_sub_data\n");
         exit(EXIT_FAILURE);
@@ -45,9 +45,14 @@ struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* p
 
     starpu_data_handle_init(sub_handle);
     sub_handle->dimensions = parent_handle->dimensions;
-    sub_handle->nx = parent_handle->nx / num_blocks;
     sub_handle->elem_size = parent_handle->elem_size;
-    sub_handle->user_data = (void*)((uintptr_t)parent_handle->user_data + offset);
+    if (n_dim > 1) {
+        sub_handle->nx = parent_handle->nx;
+        sub_handle->user_data = (void*)((uintptr_t)parent_handle->user_data);
+    } else {
+        sub_handle->nx = parent_handle->nx / num_blocks;
+        sub_handle->user_data = (void*)((uintptr_t)parent_handle->user_data + offset);
+    }
     sub_handle->version_req = parent_handle->version_req;
     sub_handle->version_exec = parent_handle->version_exec;
     sub_handle->parent_data_handle = parent_handle;
