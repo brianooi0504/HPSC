@@ -98,12 +98,7 @@ struct starpu_task* starpu_task_read(void) {
     printf("%d read task %p\n", getpid(), t);
 
     for (int i = 0; i < t->cl->nbuffers; i++) {
-        struct starpu_data_handle* h = malloc(sizeof(struct starpu_data_handle));
-        read(worker_pipe[0], h, sizeof(struct starpu_data_handle));
-
-        t->handles[i] = h;
-
-        printf("%d read task %p data %p\n", getpid(), t, h->user_data);
+        printf("Read data handle %p\n", t->data_pointers[i]);
     }
 
     return t;
@@ -130,10 +125,6 @@ void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mod
         task->self_id = task;
 
         write(worker_pipe[1], task, sizeof(struct starpu_task));
-
-        for (int i = 0; i < task->cl->nbuffers; i++) {
-            write(worker_pipe[1], task->handles[i], sizeof(struct starpu_data_handle));
-        }
      
     }
 }
@@ -156,6 +147,19 @@ void starpu_task_wait_and_spawn(void) {
 
 }
 
+void* starpu_arg_init(void* arg1, void* tag_id) {
+    struct starpu_func_arg* args = (struct starpu_func_arg*) malloc(sizeof(struct starpu_func_arg));
+
+    if (arg1) {
+        args->arg1 = arg1;
+    }
+    if (tag_id) {
+        args->tag_id = tag_id;
+    }
+
+    return (void *) args;
+}
+
 void starpu_task_run(struct starpu_task* task) {
     printf("Running task\n");
     task->status = TASK_RUNNING;
@@ -163,7 +167,9 @@ void starpu_task_run(struct starpu_task* task) {
 
     starpu_cpu_func_t func = cl->cpu_funcs[0];
 
-    func((void *) task->handles, task->cl_arg);
+    void* func_arg = starpu_arg_init(task->cl_arg, task->tag_id);
+
+    func((void *) task->data_pointers, func_arg);
 
     write(notification_pipe[1], &task->self_id, sizeof(struct starpu_task*));
 }

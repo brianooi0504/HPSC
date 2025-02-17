@@ -34,7 +34,7 @@ typedef struct {
     Block *free_list;
 } shm_allocator_t;
 
-int starpu_init(void);
+int starpu_init(int n_proc);
 void starpu_shutdown(void);
 void starpu_create_worker(void);
 void starpu_check(void);

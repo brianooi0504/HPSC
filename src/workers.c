@@ -26,7 +26,7 @@ void* notification_listener(void *arg) {
     return NULL;
 }
 
-int starpu_init(void) {
+int starpu_init(int n_proc) {
     struct starpu_task_list* task_list = malloc(sizeof(struct starpu_task_list));
     struct starpu_data_handle_list* data_handle_list = malloc(sizeof(struct starpu_data_handle_list));
 
@@ -49,8 +49,9 @@ int starpu_init(void) {
     pthread_t listener;
     pthread_create(&listener, NULL, notification_listener, NULL);
 
-    starpu_create_worker();
-    // starpu_create_worker();
+    for (int i = 0; i < n_proc; i++) {
+        starpu_create_worker();
+    }
 
     close(worker_pipe[0]);
     close(notification_pipe[1]);

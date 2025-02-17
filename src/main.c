@@ -4,11 +4,13 @@
 #include <math.h>
 #include "starpu.h"
 
-#define INCR // INCR, AXPY, STENCIL, MATMULT
+#define MATMULT // INCR, AXPY, STENCIL, MATMULT
 
 // #define N (16*1024*1024)
 #define N 1024
-#define NBLOCKS 4
+#define NBLOCKS 16
+
+#define NPROC 8
 
 #define PRINTARRAY 0
 
@@ -22,11 +24,13 @@ struct starpu_data_handle _handle_y, _handle_x, _handle_z;
 void axpy(void *arrays[], void *arg)
 {
     printf("Running axpy_cpu function\n");
+	TYPE alpha = *((TYPE *)((struct starpu_func_arg*) arg)->arg1);
 
-	TYPE alpha = *((TYPE *)arg);
+	// TYPE *block_x = ((struct starpu_data_handle*) arrays[0])->user_data;
+    // TYPE *block_y = ((struct starpu_data_handle*) arrays[1])->user_data;
 
-	TYPE *block_x = ((struct starpu_data_handle*) arrays[0])->user_data;
-    TYPE *block_y = ((struct starpu_data_handle*) arrays[1])->user_data;
+    TYPE *block_x = ((TYPE *) arrays[0]);
+    TYPE *block_y = ((TYPE *) arrays[1]);
 
     printf("block_x: %p\n", block_x);
     printf("block_y: %p\n", block_y);
@@ -67,8 +71,8 @@ static struct starpu_codelet axpy_cl = {
 #define NDIM 1
 void increment(void *array[], void* arg) {
     printf("Running increment function\n");
-    TYPE alpha = *((TYPE *)arg);
-    TYPE* block = ((struct starpu_data_handle*) array[0])->user_data;
+    TYPE alpha = *((TYPE *)((struct starpu_func_arg*) arg)->arg1);
+    TYPE* block = ((TYPE *) array[0]);
     int block_size = N/NBLOCKS;
 
     if (PRINTARRAY) {
@@ -117,12 +121,11 @@ void print_grid(float *grid, int size) {
 void stencil(void *arrays[], void *arg) {
     printf("Running stencil function\n");
 
-	TYPE *filter = (TYPE *)arg;
+	TYPE *filter = (TYPE *)((struct starpu_func_arg*) arg)->arg1;
+    uint64_t tag_id = ((struct starpu_func_arg*) arg)->tag_id;
 
-	TYPE *input = ((struct starpu_data_handle*) arrays[0])->user_data;
-    TYPE *output = ((struct starpu_data_handle*) arrays[1])->user_data;
-
-    uint64_t tag_id = ((struct starpu_data_handle*) arrays[0])->tag_id;
+	TYPE *input = ((TYPE*) arrays[0]);
+    TYPE *output = ((TYPE*) arrays[1]);    
 
     int block_dim = sqrt(NBLOCKS); // block_dim x block_dim grid
     int block_size = (N/block_dim); // Each process handles a block_size x block_size block
@@ -193,10 +196,10 @@ void print_grid(float *grid, int size) {
 void matmult(void *arrays[], void *arg) {
     printf("Running matrix multiplication function\n");
 
-    TYPE *A = ((struct starpu_data_handle*) arrays[0])->user_data;
-    TYPE *B = ((struct starpu_data_handle*) arrays[1])->user_data;
-    TYPE *C = ((struct starpu_data_handle*) arrays[2])->user_data;
-    uint64_t tag_id = ((struct starpu_data_handle*) arrays[0])->tag_id;
+    TYPE *A = ((TYPE *) arrays[0]);
+    TYPE *B = ((TYPE *) arrays[1]);
+    TYPE *C = ((TYPE *) arrays[2]);
+    uint64_t tag_id = ((struct starpu_func_arg*) arg)->tag_id;
 
     int block_dim = sqrt(NBLOCKS); // block_dim x block_dim grid
     int block_size = (N/block_dim); // Each process handles a block_size x block_size block
@@ -251,7 +254,7 @@ void starpu_check(void) {
 int main(void) {
     int ret, exit_value = 0;
 
-    ret = starpu_init();
+    ret = starpu_init(NPROC);
 	if (ret == -1) {
         exit(-1);
     }
@@ -347,6 +350,8 @@ int main(void) {
         
         task->handles[0] = starpu_data_get_sub_data(&_handle_x, b, NBLOCKS, NDIM);
 		task->handles[1] = starpu_data_get_sub_data(&_handle_y, b, NBLOCKS, NDIM); 
+        task->data_pointers[0] = task->handles[0]->user_data;
+        task->data_pointers[1] = task->handles[1]->user_data;
 
         task->version_req[0] = task->handles[0]->version_req + 1;
         task->version_req[1] = task->handles[1]->version_req + 1;
@@ -358,6 +363,7 @@ int main(void) {
         struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), b);
         
         task->handles[0] = starpu_data_get_sub_data(&_handle_y, b, NBLOCKS, NDIM);
+        task->data_pointers[0] = task->handles[0]->user_data;
         task->version_req[0] = task->handles[0]->version_req + 1;
         task->handles[0]->version_req++;
         #endif
@@ -366,7 +372,9 @@ int main(void) {
         struct starpu_task* task = starpu_task_create(&stencil_cl, &_filter, sizeof(_filter), b);
         
         task->handles[0] = starpu_data_get_sub_data(&_handle_x, b, NBLOCKS, NDIM);
-		task->handles[1] = starpu_data_get_sub_data(&_handle_y, b, NBLOCKS, NDIM); 
+		task->handles[1] = starpu_data_get_sub_data(&_handle_y, b, NBLOCKS, NDIM);
+        task->data_pointers[0] = task->handles[0]->user_data;
+        task->data_pointers[1] = task->handles[1]->user_data; 
 
         task->version_req[0] = task->handles[0]->version_req + 1;
         task->version_req[1] = task->handles[1]->version_req + 1;
@@ -380,6 +388,9 @@ int main(void) {
         task->handles[0] = starpu_data_get_sub_data(&_handle_x, b, NBLOCKS, NDIM);
 		task->handles[1] = starpu_data_get_sub_data(&_handle_y, b, NBLOCKS, NDIM); 
         task->handles[2] = starpu_data_get_sub_data(&_handle_z, b, NBLOCKS, NDIM); 
+        task->data_pointers[0] = task->handles[0]->user_data;
+        task->data_pointers[1] = task->handles[1]->user_data;
+        task->data_pointers[2] = task->handles[2]->user_data;
 
         task->version_req[0] = task->handles[0]->version_req + 1;
         task->version_req[1] = task->handles[1]->version_req + 1;
@@ -388,8 +399,6 @@ int main(void) {
         task->handles[1]->version_req++;
         task->handles[2]->version_req++;
         #endif
-
-        task->tag_id = b;
 
         starpu_task_submit(task); // add the task to the task list
         task_spawn_counter++;
@@ -400,6 +409,8 @@ int main(void) {
     struct starpu_task* task = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
     task->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
     task->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    task->data_pointers[0] = task->handles[0]->user_data;
+    task->data_pointers[1] = task->handles[1]->user_data;
     task->version_req[0] = 2;
     task->version_req[1] = 2;
     task->handles[0]->version_req = 2;
@@ -410,6 +421,8 @@ int main(void) {
     struct starpu_task* task2 = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
     task2->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
     task2->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    task2->data_pointers[0] = task2->handles[0]->user_data;
+    task2->data_pointers[1] = task2->handles[1]->user_data;
     task2->version_req[0] = 1;
     task2->version_req[1] = 1;
     task2->handles[0]->version_req = 1;
@@ -421,6 +434,7 @@ int main(void) {
     #ifdef INCR
     struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
     task->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    task->data_pointers[0] = task->handles[0]->user_data;
     task->version_req[0] = 2;
     task->handles[0]->version_req = 2;
     starpu_task_submit(task);
@@ -428,6 +442,7 @@ int main(void) {
 
     struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
     task2->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    task2->data_pointers[0] = task->handles[0]->user_data;
     task2->version_req[0] = 1;
     task2->handles[0]->version_req = 1;
     starpu_task_submit(task2);

@@ -3,8 +3,10 @@
 
 #include "starpu.h"
 
-#define STARPU_MAXIMPLEMENTATIONS 100
-#define STARPU_NMAXBUFS 100
+#define TYPE float
+
+#define STARPU_MAXIMPLEMENTATIONS 10
+#define STARPU_NMAXBUFS 10
 
 #define STARPU_MAIN_RAM 0
 
@@ -33,6 +35,7 @@ struct starpu_codelet {
 struct starpu_task {
     struct starpu_codelet* cl;
     struct starpu_data_handle* handles[STARPU_NMAXBUFS]; //struct data will be here 
+    TYPE* data_pointers[STARPU_NMAXBUFS];
     int version_req[STARPU_NMAXBUFS];
     void *cl_arg;
     size_t cl_arg_size;
@@ -47,6 +50,11 @@ struct starpu_task_list {
     pthread_mutex_t lock;
     struct starpu_task* head;
     struct starpu_task* tail;
+};
+
+struct starpu_func_arg {
+    void* arg1;
+    uint64_t tag_id;
 };
 
 void starpu_codelet_init(void);
@@ -70,5 +78,7 @@ void starpu_task_read_and_run(void);
 void starpu_task_wait_and_spawn(void);
 struct starpu_task* starpu_task_read(void);
 void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode);
+
+void* starpu_arg_init(void* arg1, void* tag_id);
 
 #endif /* __STARPU_TASK_H__ */
