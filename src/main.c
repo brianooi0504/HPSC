@@ -4,7 +4,7 @@
 #include <math.h>
 #include "starpu.h"
 
-#define MATMULT // INCR, AXPY, STENCIL, MATMULT
+#define INCR // INCR, AXPY, STENCIL, MATMULT
 
 // #define N (16*1024*1024)
 #define N 1024
@@ -398,8 +398,8 @@ int main(void) {
 
     #ifdef AXPY
     struct starpu_task* task = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
-    task->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS);
-    task->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS);
+    task->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
+    task->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
     task->version_req[0] = 2;
     task->version_req[1] = 2;
     task->handles[0]->version_req = 2;
@@ -408,8 +408,8 @@ int main(void) {
     task_spawn_counter++;
 
     struct starpu_task* task2 = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
-    task2->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS);
-    task2->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS);
+    task2->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
+    task2->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
     task2->version_req[0] = 1;
     task2->version_req[1] = 1;
     task2->handles[0]->version_req = 1;
@@ -420,14 +420,14 @@ int main(void) {
 
     #ifdef INCR
     struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
-    task->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS);
+    task->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
     task->version_req[0] = 2;
     task->handles[0]->version_req = 2;
     starpu_task_submit(task);
     task_spawn_counter++;
 
     struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
-    task2->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS);
+    task2->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
     task2->version_req[0] = 1;
     task2->handles[0]->version_req = 1;
     starpu_task_submit(task2);
@@ -449,6 +449,13 @@ int main(void) {
         printf("\n");
         #endif
 
+        #ifdef INCR
+        for (int i = 0; i < N; i++) {
+            printf("%.1f ", _vec_y[i]);
+        }
+        printf("\n");
+        #endif
+
         #ifdef STENCIL
         print_grid(_vec_y, N);
         #endif
@@ -459,7 +466,7 @@ int main(void) {
     }
 
     /* Stop StarPU */
-    starpu_check();
+    // starpu_check();
 
     starpu_shutdown();
     return exit_value;
