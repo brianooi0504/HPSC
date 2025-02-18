@@ -6,13 +6,14 @@
 
 #define MATMULT // INCR, AXPY, STENCIL, MATMULT
 
-// #define N (16*1024*1024)
+// #define N (64*1024*1024)
 #define N 1024
 #define NBLOCKS 16
 
 #define NPROC 8
 
 #define PRINTARRAY 0
+#define CHECK 0
 
 TYPE *_vec_x, *_vec_y, *_vec_z;
 TYPE _alpha = 3.4;
@@ -244,11 +245,28 @@ static struct starpu_codelet matmult_cl = {
 
 // checking function to ensure final results is correct
 void starpu_check(void) {
+    #ifdef AXPY
     float maxError = 0.0f;
     for (int i = 0; i < N; i++){
         maxError = fmax(maxError, fabs(_vec_y[i] - 7.4));
     }
     printf("Max error: %f\n", maxError);
+    #endif
+
+    #ifdef MATMULT
+    //check if matrix _vec_x multiplied by _vec_y equals _vec_z
+    float maxError = 0.0f;
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            float sum = 0.0f;
+            for (int k = 0; k < N; k++) {
+                sum += _vec_x[i * N + k] * _vec_y[k * N + j];
+            }
+            maxError = fmax(maxError, fabs(sum - _vec_z[i * N + j]));
+        }
+    }
+    printf("Max error: %f\n", maxError);
+    #endif
 }
 
 int main(void) {
@@ -279,27 +297,33 @@ int main(void) {
     _vec_z = starpu_malloc(N*N*sizeof(TYPE));
     #endif
 
-    for (int i = 0; i < N*N; i++) {
-        #ifdef AXPY
+    #ifdef AXPY
+    for (int i = 0; i < N; i++) {
         _vec_x[i] = 1.0f;
         _vec_y[i] = 4.0f;
-        #endif
+    }
+    #endif
 
-        #ifdef INCR
+    #ifdef INCR
+    for (int i = 0; i < N; i++) {
         _vec_y[i] = 4.0f;
-        #endif
+    }
+    #endif
 
-        #ifdef STENCIL
+    #ifdef STENCIL
+    for (int i = 0; i < N*N; i++) {
         _vec_x[i] = (TYPE) (i+1);
         _vec_y[i] = 0.0f;
-        #endif
+    }
+    #endif
 
-        #ifdef MATMULT
+    #ifdef MATMULT
+    for (int i = 0; i < N*N; i++) {
         _vec_x[i] = (TYPE) (i+1);
         _vec_y[i] = 2.0f;
         _vec_z[i] = 0.0f;
-        #endif
     }
+    #endif
 
     if (PRINTARRAY) {
         #ifdef AXPY
@@ -406,47 +430,47 @@ int main(void) {
     }
 
     #ifdef AXPY
-    struct starpu_task* task = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
-    task->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
-    task->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
-    task->data_pointers[0] = task->handles[0]->user_data;
-    task->data_pointers[1] = task->handles[1]->user_data;
-    task->version_req[0] = 2;
-    task->version_req[1] = 2;
-    task->handles[0]->version_req = 2;
-    task->handles[1]->version_req = 2;
-    starpu_task_submit(task);
-    task_spawn_counter++;
+    // struct starpu_task* task = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
+    // task->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
+    // task->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    // task->data_pointers[0] = task->handles[0]->user_data;
+    // task->data_pointers[1] = task->handles[1]->user_data;
+    // task->version_req[0] = 2;
+    // task->version_req[1] = 2;
+    // task->handles[0]->version_req = 2;
+    // task->handles[1]->version_req = 2;
+    // starpu_task_submit(task);
+    // task_spawn_counter++;
 
-    struct starpu_task* task2 = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
-    task2->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
-    task2->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
-    task2->data_pointers[0] = task2->handles[0]->user_data;
-    task2->data_pointers[1] = task2->handles[1]->user_data;
-    task2->version_req[0] = 1;
-    task2->version_req[1] = 1;
-    task2->handles[0]->version_req = 1;
-    task2->handles[1]->version_req = 1;
-    starpu_task_submit(task2);
-    task_spawn_counter++;
+    // struct starpu_task* task2 = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), 1);
+    // task2->handles[0] = starpu_data_get_sub_data(&_handle_x, 1, NBLOCKS, NDIM);
+    // task2->handles[1] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    // task2->data_pointers[0] = task2->handles[0]->user_data;
+    // task2->data_pointers[1] = task2->handles[1]->user_data;
+    // task2->version_req[0] = 1;
+    // task2->version_req[1] = 1;
+    // task2->handles[0]->version_req = 1;
+    // task2->handles[1]->version_req = 1;
+    // starpu_task_submit(task2);
+    // task_spawn_counter++;
     #endif
 
     #ifdef INCR
-    struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
-    task->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
-    task->data_pointers[0] = task->handles[0]->user_data;
-    task->version_req[0] = 2;
-    task->handles[0]->version_req = 2;
-    starpu_task_submit(task);
-    task_spawn_counter++;
+    // struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
+    // task->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    // task->data_pointers[0] = task->handles[0]->user_data;
+    // task->version_req[0] = 2;
+    // task->handles[0]->version_req = 2;
+    // starpu_task_submit(task);
+    // task_spawn_counter++;
 
-    struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
-    task2->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
-    task2->data_pointers[0] = task->handles[0]->user_data;
-    task2->version_req[0] = 1;
-    task2->handles[0]->version_req = 1;
-    starpu_task_submit(task2);
-    task_spawn_counter++;
+    // struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
+    // task2->handles[0] = starpu_data_get_sub_data(&_handle_y, 1, NBLOCKS, NDIM);
+    // task2->data_pointers[0] = task->handles[0]->user_data;
+    // task2->version_req[0] = 1;
+    // task2->handles[0]->version_req = 1;
+    // starpu_task_submit(task2);
+    // task_spawn_counter++;
     #endif
 
     starpu_task_wait_and_spawn(); // executes all the tasks in the task list
@@ -481,7 +505,9 @@ int main(void) {
     }
 
     /* Stop StarPU */
-    // starpu_check();
+    if (CHECK) {
+        starpu_check();
+    }
 
     starpu_shutdown();
     return exit_value;
