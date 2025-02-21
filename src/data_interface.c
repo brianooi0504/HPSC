@@ -1,5 +1,7 @@
 #include "starpu.h"
 
+struct starpu_data_handle_list data_handle_list;
+
 void starpu_data_handle_submit(struct starpu_data_handle* data_handle) {
 	pthread_mutex_lock(&data_handle_list.lock);
 

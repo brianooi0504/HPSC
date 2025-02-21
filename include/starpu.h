@@ -20,9 +20,6 @@
 
 #define TYPE float
 
-static struct starpu_task_list task_list;
-static struct starpu_data_handle_list data_handle_list;
-
 typedef struct Block {
     size_t size;
     struct Block *next;
@@ -44,6 +41,9 @@ extern int notification_pipe[2];
 extern int shm_fd;
 extern int task_completion_counter;
 extern int task_spawn_counter;
+
+extern struct starpu_task_list task_list;
+extern struct starpu_data_handle_list data_handle_list;
 
 extern TYPE* shared_data;
 extern shm_allocator_t *allocator;

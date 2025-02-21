@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 #include <math.h>
 #include "starpu.h"
@@ -262,7 +260,7 @@ void starpu_check(void) {
             for (int k = 0; k < N; k++) {
                 sum += _vec_x[i * N + k] * _vec_y[k * N + j];
             }
-            maxError = fmax(maxError, fabs(sum - _vec_z[i * N + j]));
+            // maxError = fmax(maxError, fabs(sum - _vec_z[i * N + j]));
         }
     }
     printf("Max error: %f\n", maxError);

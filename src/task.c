@@ -1,5 +1,7 @@
 #include "starpu.h"
 
+struct starpu_task_list task_list;
+
 struct starpu_task* starpu_task_create(
     struct starpu_codelet* cl,
     void* cl_arg,
@@ -147,7 +149,7 @@ void starpu_task_wait_and_spawn(void) {
 
 }
 
-void* starpu_arg_init(void* arg1, void* tag_id) {
+void* starpu_arg_init(void* arg1, uint64_t tag_id) {
     struct starpu_func_arg* args = (struct starpu_func_arg*) malloc(sizeof(struct starpu_func_arg));
 
     if (arg1) {

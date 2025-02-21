@@ -79,6 +79,6 @@ void starpu_task_wait_and_spawn(void);
 struct starpu_task* starpu_task_read(void);
 void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode);
 
-void* starpu_arg_init(void* arg1, void* tag_id);
+void* starpu_arg_init(void* arg1, uint64_t tag_id);
 
 #endif /* __STARPU_TASK_H__ */
