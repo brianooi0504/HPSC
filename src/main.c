@@ -22,7 +22,7 @@ struct starpu_data_handle _handle_y, _handle_x, _handle_z;
 #define NDIM 1
 void axpy(void *arrays[], void *arg)
 {
-    printf("Running axpy_cpu function\n");
+    printf("CHILD PROCESS %d: Running axpy_cpu function\n", getpid());
 	TYPE alpha = *((TYPE *)((struct starpu_func_arg*) arg)->arg1);
 
 	// TYPE *block_x = ((struct starpu_data_handle*) arrays[0])->user_data;
@@ -69,7 +69,7 @@ static struct starpu_codelet axpy_cl = {
 #ifdef INCR
 #define NDIM 1
 void increment(void *array[], void* arg) {
-    printf("Running increment function\n");
+    printf("CHILD PROCESS %d: Running increment function\n", getpid());
     TYPE alpha = *((TYPE *)((struct starpu_func_arg*) arg)->arg1);
     TYPE* block = ((TYPE *) array[0]);
     int block_size = N/NBLOCKS;
@@ -118,7 +118,7 @@ void print_grid(float *grid, int size) {
 }
 
 void stencil(void *arrays[], void *arg) {
-    printf("Running stencil function\n");
+    printf("CHILD PROCESS %d: Running stencil function\n", getpid());
 
 	TYPE *filter = (TYPE *)((struct starpu_func_arg*) arg)->arg1;
     uint64_t tag_id = ((struct starpu_func_arg*) arg)->tag_id;
@@ -193,7 +193,7 @@ void print_grid(float *grid, int size) {
 }
 
 void matmult(void *arrays[], void *arg) {
-    printf("Running matrix multiplication function\n");
+    printf("CHILD PROCESS %d: Running matrix multiplication function\n", getpid());
 
     TYPE *A = ((TYPE *) arrays[0]);
     TYPE *B = ((TYPE *) arrays[1]);
@@ -211,7 +211,7 @@ void matmult(void *arrays[], void *arg) {
     int start_i = block_row * block_size;
     int start_j = block_col * block_size;
 
-    printf("Process %lu computing block C[%d:%d, %d:%d]\n",
+    printf("CHILD PROCESS %d: Process %lu computing block C[%d:%d, %d:%d]\n", getpid(), 
            tag_id, start_i, start_i + block_size, start_j, start_j + block_size);
 
     // Compute the sub-block of C

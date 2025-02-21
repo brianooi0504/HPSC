@@ -42,8 +42,8 @@ extern int shm_fd;
 extern int task_completion_counter;
 extern int task_spawn_counter;
 
-extern struct starpu_task_list task_list;
-extern struct starpu_data_handle_list data_handle_list;
+extern struct starpu_task_list* task_list;
+extern struct starpu_data_handle_list* data_handle_list;
 
 extern TYPE* shared_data;
 extern shm_allocator_t *allocator;

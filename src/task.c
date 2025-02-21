@@ -1,7 +1,5 @@
 #include "starpu.h"
 
-struct starpu_task_list task_list;
-
 struct starpu_task* starpu_task_create(
     struct starpu_codelet* cl,
     void* cl_arg,
@@ -25,25 +23,23 @@ struct starpu_task* starpu_task_create(
 }
 
 void starpu_task_submit(struct starpu_task* task) {
-    pthread_mutex_lock(&task_list.lock);
+    pthread_mutex_lock(&task_list->lock);
 
-    if (task_list.tail) {
-        task_list.tail->next_task = task;
+    if (task_list->tail) {
+        task_list->tail->next_task = task;
     } else {
-        task_list.head = task;
+        task_list->head = task;
     }
-    task_list.tail = task;
+    task_list->tail = task;
     task->status = TASK_READY;
 
-    pthread_mutex_unlock(&task_list.lock);
+    pthread_mutex_unlock(&task_list->lock);
 }
 
 struct starpu_task* starpu_task_get(void) {
     struct starpu_task* task = NULL;
 
-    pthread_mutex_lock(&task_list.lock);
-
-    task = task_list.head;
+    task = task_list->head;
 
     while (task) {
         if (task->status == TASK_READY) {
@@ -56,14 +52,12 @@ struct starpu_task* starpu_task_get(void) {
             }
             if (all_versions_match) {
                 task->status = TASK_ASSIGNED;
-                pthread_mutex_unlock(&task_list.lock);
+                pthread_mutex_unlock(&task_list->lock);
                 return task;
             }
         }
         task = task->next_task;
     }
-
-    pthread_mutex_unlock(&task_list.lock);
 
     return NULL;
 }
@@ -78,11 +72,11 @@ void starpu_task_wait_for_all(void) {
     struct starpu_task* cur;
 
     while (1) {
-        pthread_mutex_lock(&task_list.lock);
+        pthread_mutex_lock(&task_list->lock);
 
         cur = starpu_task_get();
 
-        pthread_mutex_unlock(&task_list.lock);
+        pthread_mutex_unlock(&task_list->lock);
 
         if (cur) {
             starpu_task_run(cur);
@@ -97,10 +91,9 @@ struct starpu_task* starpu_task_read(void) {
     struct starpu_task* t = malloc(sizeof(struct starpu_task));
 
     read(worker_pipe[0], t, sizeof(struct starpu_task));
-    printf("%d read task %p\n", getpid(), t);
 
     for (int i = 0; i < t->cl->nbuffers; i++) {
-        printf("Read data handle %p\n", t->data_pointers[i]);
+        printf("CHILD PROCESS %d: Reading data handle %p\n", getpid(), t->data_pointers[i]);
     }
 
     return t;
@@ -111,7 +104,7 @@ void starpu_task_read_and_run(void) {
 
     while (1) {
         cur = starpu_task_read();
-        printf("CHILD PROCESS %d: read task\n", getpid());
+        printf("CHILD PROCESS %d: Task read\n", getpid());
 
         if (cur) {
             starpu_task_run(cur);
@@ -122,7 +115,7 @@ void starpu_task_read_and_run(void) {
 void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode) {
 
     if (mode == LOCAL_PROCESS) {
-        printf("Task spawn\n");
+        printf("HOST: Task %p spawned\n", task);
 
         task->self_id = task;
 
@@ -135,11 +128,11 @@ void starpu_task_wait_and_spawn(void) {
     struct starpu_task* cur = NULL;
 
     while (task_completion_counter < task_spawn_counter) {
-        pthread_mutex_lock(&task_list.lock);
+        pthread_mutex_lock(&task_list->lock);
 
         cur = starpu_task_get();
 
-        pthread_mutex_unlock(&task_list.lock);
+        pthread_mutex_unlock(&task_list->lock);
 
         if (cur) {
             starpu_task_spawn(cur, LOCAL_PROCESS);
@@ -163,7 +156,6 @@ void* starpu_arg_init(void* arg1, uint64_t tag_id) {
 }
 
 void starpu_task_run(struct starpu_task* task) {
-    printf("Running task\n");
     task->status = TASK_RUNNING;
     struct starpu_codelet* cl = task->cl;
 
