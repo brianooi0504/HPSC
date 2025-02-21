@@ -39,14 +39,14 @@ void starpu_shutdown(void);
 void starpu_create_worker(void);
 void starpu_check(void);
 
-int worker_pipe[2];
-int notification_pipe[2];
-int shm_fd;
-int task_completion_counter;
-int task_spawn_counter;
+extern int worker_pipe[2];
+extern int notification_pipe[2];
+extern int shm_fd;
+extern int task_completion_counter;
+extern int task_spawn_counter;
 
-TYPE* shared_data;
-shm_allocator_t *allocator;
+extern TYPE* shared_data;
+extern shm_allocator_t *allocator;
 
 void shm_init(shm_allocator_t **allocator);
 void* shm_alloc(shm_allocator_t *allocator, size_t size);
