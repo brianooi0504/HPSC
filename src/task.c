@@ -93,7 +93,7 @@ struct starpu_task* starpu_task_read(void) {
     read(worker_pipe[0], t, sizeof(struct starpu_task));
 
     for (int i = 0; i < t->cl->nbuffers; i++) {
-        printf("CHILD PROCESS %d: Reading data handle %p\n", getpid(), t->data_pointers[i]);
+        printf("CHILD PROCESS %d: Reading data handle %p\n", getpid(), t->handles[i]);
     }
 
     return t;
@@ -163,7 +163,7 @@ void starpu_task_run(struct starpu_task* task) {
 
     void* func_arg = starpu_arg_init(task->cl_arg, task->tag_id);
 
-    func((void *) task->data_pointers, func_arg);
+    func((void *) task->handles, func_arg);
 
     write(notification_pipe[1], &task->self_id, sizeof(struct starpu_task*));
 }

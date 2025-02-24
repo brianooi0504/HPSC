@@ -39,8 +39,10 @@ void* notification_listener(void *arg) {
 }
 
 int starpu_init(int n_proc) {
+    shm_init(&allocator);
+    
     task_list = malloc(sizeof(struct starpu_task_list));
-    data_handle_list = malloc(sizeof(struct starpu_data_handle_list));
+    data_handle_list = (struct starpu_data_handle_list*) starpu_malloc(sizeof(struct starpu_data_handle_list));
 
     starpu_task_list_init(task_list);
     starpu_data_handle_list_init(data_handle_list);
@@ -55,8 +57,6 @@ int starpu_init(int n_proc) {
     if (pipe(notification_pipe) == -1) {
         exit(-1);
     }
-
-    shm_init(&allocator);
 
     pthread_t listener;
     pthread_create(&listener, NULL, notification_listener, NULL);

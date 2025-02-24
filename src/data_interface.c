@@ -55,5 +55,5 @@ void starpu_data_handle_init(struct starpu_data_handle *handle) {
 }
 
 void* starpu_malloc(size_t t) {
-    return (TYPE *) shm_alloc(allocator, t);
+    return shm_alloc(allocator, t);
 }

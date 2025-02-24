@@ -35,7 +35,6 @@ struct starpu_codelet {
 struct starpu_task {
     struct starpu_codelet* cl;
     struct starpu_data_handle* handles[STARPU_NMAXBUFS]; //struct data will be here 
-    TYPE* data_pointers[STARPU_NMAXBUFS];
     int version_req[STARPU_NMAXBUFS];
     void *cl_arg;
     size_t cl_arg_size;

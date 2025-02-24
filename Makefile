@@ -19,7 +19,7 @@ all: $(TARGET)
 
 # Rule to build the target executable
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) -lm
 
 # Rule to build object files (.o) from .c files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
