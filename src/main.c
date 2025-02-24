@@ -4,7 +4,7 @@
 
 #define MATMULT // INCR, AXPY, STENCIL, MATMULT
 
-// #define N (64*1024*1024)
+// #define N (48*1024*1024)
 #define N 1024
 #define NBLOCKS 16
 
@@ -309,7 +309,7 @@ int main(void) {
 
     #ifdef MATMULT
     for (int i = 0; i < N*N; i++) {
-        _vec_x[i] = (TYPE) (i+1);
+        _vec_x[i] = 1024.0f;
         _vec_y[i] = 2.0f;
         _vec_z[i] = 0.0f;
     }

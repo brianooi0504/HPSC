@@ -32,7 +32,7 @@ void* notification_listener(void *arg) {
         ret_task->status = TASK_FINISHED;
 
         task_completion_counter++;
-        printf("Checkpoint\n");
+        printf("Checkpoint %d\n", task_completion_counter);
     }
 
     return NULL;
