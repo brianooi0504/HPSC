@@ -18,6 +18,8 @@ struct starpu_task* starpu_task_create(
     task->tag_id = tag_id;
     task->next_task = NULL;
     task->status = TASK_INIT;
+    task->num_dependencies = 0;
+    task->num_dependencies_met = 0;
 
     return task;
 }
@@ -25,13 +27,31 @@ struct starpu_task* starpu_task_create(
 void starpu_task_submit(struct starpu_task* task) {
     pthread_mutex_lock(&task_list->lock);
 
+    // Check if all dependencies are met
+    int all_dependencies_met = 1;
+    for (int i = 0; i < task->num_dependencies; i++) {
+        if (task->dependencies[i]->status != TASK_FINISHED) {
+            all_dependencies_met = 0;
+            break;
+        }
+    }
+
+    // If dependencies are met, mark as TASK_READY, otherwise TASK_WAITING
+    if (all_dependencies_met) {
+        task->status = TASK_READY;
+        printf("Task %p submitted READY\n", task);
+    } else {
+        task->status = TASK_WAITING;
+        printf("Task %p submitted WAITING\n", task);
+    }
+
+    // Add task to the queue
     if (task_list->tail) {
         task_list->tail->next_task = task;
     } else {
         task_list->head = task;
     }
     task_list->tail = task;
-    task->status = TASK_READY;
 
     pthread_mutex_unlock(&task_list->lock);
 }
@@ -44,15 +64,21 @@ struct starpu_task* starpu_task_get(void) {
     while (task) {
         if (task->status == TASK_READY) {
             int all_versions_match = 1;
+
+            // Check data versions
             for (int i = 0; i < task->cl->nbuffers; i++) {
                 if (task->handles[i]->version_exec < task->version_req[i]) {
                     all_versions_match = 0;
                     break;
                 }
             }
+
+            if (task->num_dependencies_met < task->num_dependencies) {
+                all_versions_match = 0;
+            }
+
             if (all_versions_match) {
                 task->status = TASK_ASSIGNED;
-                pthread_mutex_unlock(&task_list->lock);
                 return task;
             }
         }
@@ -66,6 +92,16 @@ void starpu_task_list_init(struct starpu_task_list *list) {
     pthread_mutex_init(&list->lock, NULL);
     list->head = NULL;
     list->tail = NULL;
+}
+
+void starpu_task_add_dependency(struct starpu_task* task, struct starpu_task* dependency) {
+    printf("Task %p with dependency %p\n", task, dependency);
+    if (task->num_dependencies < STARPU_NMAXDEPENDENCIES) {
+        task->dependencies[task->num_dependencies] = dependency;
+        task->num_dependencies++;
+    } else {
+        printf("Error: Too many dependencies for task %p\n", task);
+    }
 }
 
 void starpu_task_wait_for_all(void) {

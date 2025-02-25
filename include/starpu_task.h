@@ -7,6 +7,7 @@
 
 #define STARPU_MAXIMPLEMENTATIONS 10
 #define STARPU_NMAXBUFS 10
+#define STARPU_NMAXDEPENDENCIES 10
 
 #define STARPU_MAIN_RAM 0
 
@@ -14,6 +15,7 @@ typedef void (*starpu_cpu_func_t) (void **, void *);
 
 enum starpu_task_status {
     TASK_INIT, // initialized
+    TASK_WAITING, // waiting for dependencies
     TASK_READY, // ready for execution
     TASK_ASSIGNED, // assigned to a worker
     TASK_RUNNING, // running on some worker
@@ -43,6 +45,10 @@ struct starpu_task {
     enum starpu_task_status status;
     struct starpu_task* next_task;
     struct starpu_task* self_id;
+
+    int num_dependencies;
+    struct starpu_task* dependencies[STARPU_NMAXDEPENDENCIES]; // tasks that must be completed before this one
+    int num_dependencies_met;
 };
 
 struct starpu_task_list {
@@ -69,6 +75,7 @@ void starpu_task_submit(struct starpu_task* task);
 struct starpu_task* starpu_task_get(void);
 
 void starpu_task_list_init(struct starpu_task_list *list);
+void starpu_task_add_dependency(struct starpu_task* task, struct starpu_task* dependency);
 
 void starpu_task_wait_for_all(void);
 void starpu_task_run(struct starpu_task* task);

@@ -25,14 +25,28 @@ void* notification_listener(void *arg) {
         
         for (int i = 0; i < ret_task->cl->nbuffers; i++) {
             ret_task->handles[i]->version_exec++;
-
-            // shm_free(allocator, ret_task->handles[i]->user_data_shm);
         }
 
         ret_task->status = TASK_FINISHED;
 
         task_completion_counter++;
         printf("Checkpoint %d\n", task_completion_counter);
+
+        struct starpu_task* task = task_list->head;
+        while (task) {
+            for (int i = 0; i < task->num_dependencies; i++) {
+                if (task->dependencies[i] == ret_task) {
+                    task->num_dependencies_met++;
+
+                    // If all dependencies are met, mark as TASK_READY
+                    if (task->num_dependencies_met == task->num_dependencies) {
+                        task->status = TASK_READY;
+                        printf("Task %p is now READY\n", task);
+                    }
+                }
+            }
+            task = task->next_task;
+        }
     }
 
     return NULL;

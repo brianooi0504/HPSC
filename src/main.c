@@ -2,16 +2,16 @@
 #include <math.h>
 #include "starpu.h"
 
-#define MATMULT // INCR, AXPY, STENCIL, MATMULT
+#define AXPY // INCR, AXPY, STENCIL, MATMULT
 
 // #define N (48*1024*1024)
-#define N 1024
-#define NBLOCKS 16
+#define N 16
+#define NBLOCKS 4
 
-#define NPROC 8
+#define NPROC 1
 
-#define PRINTARRAY 0
-#define CHECK 0
+#define PRINTARRAY 1
+#define CHECK 1
 
 TYPE *_vec_x, *_vec_y, *_vec_z;
 TYPE _alpha = 3.4;
@@ -134,17 +134,26 @@ void stencil(void *arrays[], void *arg) {
 
     print_grid(filter, FILTER_SIZE);
 
-    // Apply the stencil within the assigned block
-    for (int i = 1; i < block_size - 1; i++) {         // Avoid boundary cells
-        for (int j = 1; j < block_size - 1; j++) {     // Avoid boundary cells
-            float sum = 0.0f;
+    // Apply the stencil within the assigned block, including the borders
+    for (int i = 0; i < block_size; i++) {       
+        for (int j = 0; j < block_size; j++) {  
+            int global_i = start_i + i;
+            int global_j = start_j + j;
+            int output_index = global_i * N + global_j;
 
+            // Skip the very outermost boundary (row 0, col 0, last row, last col)
+            if (global_i == 0 || global_j == 0 || global_i == N - 1 || global_j == N - 1) {
+                output[output_index] = input[output_index];
+                continue;
+            }
+
+            float sum = 0.0f;
             // Apply the 3x3 filter
             for (int fi = -1; fi <= 1; fi++) {
                 for (int fj = -1; fj <= 1; fj++) {
-                    int global_i = start_i + i + fi;
-                    int global_j = start_j + j + fj;
-                    int input_index = global_i * N + global_j;
+                    int neighbor_i = global_i + fi;
+                    int neighbor_j = global_j + fj;
+                    int input_index = neighbor_i * N + neighbor_j;
                     int filter_index = (fi + 1) * FILTER_SIZE + (fj + 1);
 
                     sum += input[input_index] * filter[filter_index];
@@ -152,7 +161,6 @@ void stencil(void *arrays[], void *arg) {
             }
 
             // Store the result in the output grid
-            int output_index = (start_i + i) * N + (start_j + j);
             output[output_index] = sum;
         }
     }
@@ -243,19 +251,72 @@ void starpu_check(void) {
     printf("Max error: %f\n", maxError);
     #endif
 
+    #ifdef STENCIL
+    int errors = 0;
+
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            int index = i * N + j;
+            // The outermost boundary should remain unchanged
+            if (i == 0 || j == 0 || i == N - 1 || j == N - 1) {
+                if (_vec_x[index] != _vec_y[index]) {
+                    printf("Mismatch at (%d, %d): Expected %f, but got %f\n",
+                           i, j, _vec_x[index], _vec_y[index]);
+                    errors++;
+                }
+                continue;
+            }
+
+            // Compute the expected stencil result
+            float expected = 0.0f;
+            for (int fi = -1; fi <= 1; fi++) {
+                for (int fj = -1; fj <= 1; fj++) {
+                    int neighbor_i = i + fi;
+                    int neighbor_j = j + fj;
+                    int input_index = neighbor_i * N + neighbor_j;
+                    int filter_index = (fi + 1) * FILTER_SIZE + (fj + 1);
+
+                    expected += _vec_x[input_index] * _filter[filter_index];
+                }
+            }
+
+            // Compare the computed and expected results
+            if (fabs(_vec_y[index] - expected) > 1e-5) { // Allow small floating-point errors
+                printf("Mismatch at (%d, %d): Expected %f, but got %f\n", i, j, expected, _vec_y[index]);
+                errors++;
+            }
+        }
+    }
+
+    if (errors == 0) {
+        printf("Stencil computation is correct!\n");
+    } else {
+        printf("Found %d mismatches in the output.\n", errors);
+    }
+    #endif
+
     #ifdef MATMULT
     //check if matrix _vec_x multiplied by _vec_y equals _vec_z
-    float maxError = 0.0f;
+    int errors = 0;
+
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
             float sum = 0.0f;
             for (int k = 0; k < N; k++) {
                 sum += _vec_x[i * N + k] * _vec_y[k * N + j];
             }
-            // maxError = fmax(maxError, fabs(sum - _vec_z[i * N + j]));
+            if(fabs(sum - _vec_z[i * N + j]) > 1e-5) {
+                printf("Mismatch at (%d, %d): Expected %f, but got %f\n", i, j, sum, _vec_z[i * N + j]);
+                errors++;
+            }
         }
     }
-    printf("Max error: %f\n", maxError);
+
+    if (errors == 0) {
+        printf("Matrix multiplication is correct!\n");
+    } else {
+        printf("Found %d mismatches in the output.\n", errors);
+    }
     #endif
 }
 
@@ -442,19 +503,22 @@ int main(void) {
     #endif
 
     #ifdef INCR
-    // struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
-    // task->handles[0] = starpu_data_get_sub_data(_handle_y, 1, NBLOCKS, NDIM);
-    // task->version_req[0] = 2;
-    // task->handles[0]->version_req = 2;
-    // starpu_task_submit(task);
-    // task_spawn_counter++;
+    struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
+    task->handles[0] = starpu_data_get_sub_data(_handle_y, 1, NBLOCKS, NDIM);
+    task->version_req[0] = 0;
+    task->handles[0]->version_req = 0;
 
-    // struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
-    // task2->handles[0] = starpu_data_get_sub_data(_handle_y, 1, NBLOCKS, NDIM);
-    // task2->version_req[0] = 1;
-    // task2->handles[0]->version_req = 1;
-    // starpu_task_submit(task2);
-    // task_spawn_counter++;
+    struct starpu_task* task2 = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), 1);
+    task2->handles[0] = starpu_data_get_sub_data(_handle_y, 1, NBLOCKS, NDIM);
+    task2->version_req[0] = 1;
+    task2->handles[0]->version_req = 1;
+
+    starpu_task_add_dependency(task, task2);
+
+    starpu_task_submit(task);
+    task_spawn_counter++;
+    starpu_task_submit(task2);
+    task_spawn_counter++;
     #endif
 
     starpu_task_wait_and_spawn(); // executes all the tasks in the task list
