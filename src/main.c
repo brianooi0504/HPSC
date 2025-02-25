@@ -2,7 +2,7 @@
 #include <math.h>
 #include "starpu.h"
 
-#define AXPY // INCR, AXPY, STENCIL, MATMULT
+#define MATMULT // INCR, AXPY, STENCIL, MATMULT
 
 // #define N (48*1024*1024)
 #define N 16
@@ -10,7 +10,7 @@
 
 #define NPROC 1
 
-#define PRINTARRAY 1
+#define PRINTARRAY 0
 #define CHECK 1
 
 TYPE *_vec_x, *_vec_y, *_vec_z;
