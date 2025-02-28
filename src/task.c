@@ -104,66 +104,93 @@ void starpu_task_add_dependency(struct starpu_task* task, struct starpu_task* de
     }
 }
 
-void starpu_task_wait_for_all(void) {
-    struct starpu_task* cur;
+struct starpu_task* starpu_task_read(int worker_pipe_fd, starpu_task_spawn_mode mode) {
+    // Allocate memory for the task
+    struct starpu_task* task = malloc(sizeof(struct starpu_task));
 
-    while (1) {
-        pthread_mutex_lock(&task_list->lock);
+    if (!task) {
+        perror("Failed to allocate memory for task");
+        return NULL;
+    }
 
-        cur = starpu_task_get();
+    // Read the task structure from the pipe
+    read(worker_pipe_fd, task, sizeof(struct starpu_task));
 
-        pthread_mutex_unlock(&task_list->lock);
+    // For REMOTE_PROCESS mode, deserialize the user_data for each handle
+    if (mode == REMOTE_PROCESS) {
+        for (int i = 0; i < task->cl->nbuffers; i++) {
+            struct starpu_data_handle* handle = task->handles[i];
 
-        if (cur) {
-            starpu_task_run(cur);
-        } else {
-            break;
+            // Read the size of the user_data
+            size_t data_size;
+            read(worker_pipe_fd, &data_size, sizeof(size_t));
+
+            // Allocate memory for the user_data
+            handle->user_data = malloc(data_size);
+            handle->elem_size = sizeof(TYPE);
+            handle->nx = data_size / handle->elem_size;
+            if (!handle->user_data) {
+                perror("Failed to allocate memory for user_data");
+                free(task);
+                return NULL;
+            }
+
+            // Read the serialized data into user_data
+            read(worker_pipe_fd, handle->user_data, data_size);
+
+            printf("CHILD PROCESS %d: Deserialized data handle %p (size: %zu)\n", getpid(), handle, data_size);
         }
     }
 
+    printf("CHILD PROCESS %d: Task %p read successfully\n", getpid(), task);
+    return task;
 }
 
-struct starpu_task* starpu_task_read(void) {
-    struct starpu_task* t = malloc(sizeof(struct starpu_task));
-
-    read(worker_pipe[0], t, sizeof(struct starpu_task));
-
-    for (int i = 0; i < t->cl->nbuffers; i++) {
-        printf("CHILD PROCESS %d: Reading data handle %p\n", getpid(), t->handles[i]);
-    }
-
-    return t;
-}
-
-void starpu_task_read_and_run(void) {
+void starpu_task_read_and_run(int worker_pipe_fd, int notif_pipe_fd, starpu_task_spawn_mode mode) {
     struct starpu_task* cur;
 
     while (1) {
-        cur = starpu_task_read();
-        printf("CHILD PROCESS %d: Task read\n", getpid());
+        cur = starpu_task_read(worker_pipe_fd, mode);
 
         if (cur) {
-            starpu_task_run(cur);
+            printf("CHILD PROCESS %d: Task read\n", getpid());
+            starpu_task_run(cur, notif_pipe_fd, mode);
         }
     }
 }
 
-void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode) {
+void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode) {
 
-    if (mode == LOCAL_PROCESS) {
-        printf("HOST: Task %p spawned\n", task);
+    printf("HOST: Task %p spawned\n", task);
 
-        task->self_id = task;
+    task->self_id = task;
 
-        write(worker_pipe[1], task, sizeof(struct starpu_task));
-     
+    // Choose a worker (e.g., round-robin)
+    int worker_index = task_spawn_counter % num_workers;
+    task_spawn_counter++;
+
+    write(workers[worker_index].worker_pipe[1], task, sizeof(struct starpu_task));
+
+    if (mode == REMOTE_PROCESS) {
+        // Serialize and send user_data for each handle
+        for (int i = 0; i < task->cl->nbuffers; i++) {
+            struct starpu_data_handle* handle = task->handles[i];
+            printf("Sending data from %p\n", handle);
+
+            // Send the size of the user_data
+            size_t data_size = handle->nx * handle->elem_size; // Example: nx * elem_size for array data
+            write(workers[worker_index].worker_pipe[1], &data_size, sizeof(size_t));
+
+            // Send the user_data itself
+            write(workers[worker_index].worker_pipe[1], handle->user_data, data_size);
+        }
     }
 }
 
-void starpu_task_wait_and_spawn(void) {
+void starpu_task_wait_and_spawn(starpu_task_spawn_mode mode) {
     struct starpu_task* cur = NULL;
 
-    while (task_completion_counter < task_spawn_counter) {
+    while (task_completion_counter < task_submitted_counter) {
         pthread_mutex_lock(&task_list->lock);
 
         cur = starpu_task_get();
@@ -171,7 +198,7 @@ void starpu_task_wait_and_spawn(void) {
         pthread_mutex_unlock(&task_list->lock);
 
         if (cur) {
-            starpu_task_spawn(cur, LOCAL_PROCESS);
+            starpu_task_spawn(cur, mode);
             cur = NULL;
         }
     }
@@ -191,7 +218,7 @@ void* starpu_arg_init(void* arg1, uint64_t tag_id) {
     return (void *) args;
 }
 
-void starpu_task_run(struct starpu_task* task) {
+void starpu_task_run(struct starpu_task* task, int notif_pipe_fd, starpu_task_spawn_mode mode) {
     task->status = TASK_RUNNING;
     struct starpu_codelet* cl = task->cl;
 
@@ -201,5 +228,19 @@ void starpu_task_run(struct starpu_task* task) {
 
     func((void *) task->handles, func_arg);
 
-    write(notification_pipe[1], &task->self_id, sizeof(struct starpu_task*));
+    write(notif_pipe_fd, &task->self_id, sizeof(struct starpu_task*));
+    
+    if (mode == REMOTE_PROCESS) {
+        // Send modified user_data back to the main process
+        for (int i = 0; i < cl->nbuffers; i++) {
+            struct starpu_data_handle* handle = task->handles[i];
+
+            // Send the size of the user_data
+            size_t data_size = handle->nx * handle->elem_size; // Example: nx * elem_size for array data
+            write(notif_pipe_fd, &data_size, sizeof(size_t));
+
+            // Send the modified user_data
+            write(notif_pipe_fd, handle->user_data, data_size);
+        }
+    }
 }

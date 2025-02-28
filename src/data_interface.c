@@ -54,6 +54,10 @@ void starpu_data_handle_init(struct starpu_data_handle *handle) {
     handle->tag_id = 0;
 }
 
-void* starpu_malloc(size_t t) {
-    return shm_alloc(allocator, t);
+void* starpu_malloc(size_t t, starpu_task_spawn_mode mode) {
+    if (mode == LOCAL_PROCESS) {
+        return shm_alloc(allocator, t);
+    } else if (mode == REMOTE_PROCESS) {
+        return malloc(t);
+    }
 }

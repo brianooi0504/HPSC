@@ -1,10 +1,12 @@
 #include "starpu.h"
 
-int worker_pipe[2];
-int notification_pipe[2];
 int shm_fd;
 int task_completion_counter;
 int task_spawn_counter;
+int task_submitted_counter;
+
+struct starpu_worker* workers;
+int num_workers;
 
 TYPE* shared_data;
 shm_allocator_t *allocator;
@@ -14,13 +16,33 @@ struct starpu_data_handle_list* data_handle_list;
 
 // pthread function to listen to notification pipe
 void* notification_listener(void *arg) {
+    struct notification_listener_args* args = (struct notification_listener_args*) arg;
+    enum starpu_task_spawn_mode mode = args->mode;
+    int notif_pipe_fd = args->notif_pipe_fd;
+
+    // Free the argument structure (no longer needed)
+    free(args);
+
     while (1) {
         struct starpu_task* ret_task;
-        read(notification_pipe[0], &ret_task, sizeof(struct starpu_task*));
+        read(notif_pipe_fd, &ret_task, sizeof(struct starpu_task*));
 
         if (!ret_task) {
             perror("Notification for task failed");
             exit(-1);
+        }
+
+        if (mode == REMOTE_PROCESS) {
+            for (int i = 0; i < ret_task->cl->nbuffers; i++) {
+                struct starpu_data_handle* handle = ret_task->handles[i];
+
+                // Read the size of the modified user_data
+                size_t data_size;
+                read(notif_pipe_fd, &data_size, sizeof(size_t));
+
+                // Read the modified user_data
+                read(notif_pipe_fd, handle->user_data, data_size);
+            }
         }
         
         for (int i = 0; i < ret_task->cl->nbuffers; i++) {
@@ -52,49 +74,87 @@ void* notification_listener(void *arg) {
     return NULL;
 }
 
-int starpu_init(int n_proc) {
+int starpu_init(int n_proc, starpu_task_spawn_mode mode) {
     shm_init(&allocator);
     
     task_list = malloc(sizeof(struct starpu_task_list));
-    data_handle_list = (struct starpu_data_handle_list*) starpu_malloc(sizeof(struct starpu_data_handle_list));
+    data_handle_list = (struct starpu_data_handle_list*) starpu_malloc(sizeof(struct starpu_data_handle_list), mode);
 
     starpu_task_list_init(task_list);
     starpu_data_handle_list_init(data_handle_list);
 
     task_completion_counter = 0;
     task_spawn_counter = 0;
+    task_submitted_counter = 0;
 
-    if (pipe(worker_pipe) == -1) {
-        exit(-1);
-    }
-
-    if (pipe(notification_pipe) == -1) {
-        exit(-1);
-    }
-
-    pthread_t listener;
-    pthread_create(&listener, NULL, notification_listener, NULL);
+    workers = NULL;
+    num_workers = 0;
+    pthread_t listeners[n_proc];
 
     for (int i = 0; i < n_proc; i++) {
-        starpu_create_worker();
+        starpu_create_worker(mode);
+
+        // Create the thread argument structure
+        struct notification_listener_args* args = malloc(sizeof(struct notification_listener_args));
+        if (!args) {
+            perror("Failed to allocate memory for thread arguments");
+            exit(-1);
+        }
+        args->mode = mode;
+        args->notif_pipe_fd = workers[i].notif_pipe[0];
+
+        // Create the notification listener thread and pass the arguments
+        if (pthread_create(&listeners[i], NULL, notification_listener, args) != 0) {
+            perror("Failed to create notification listener thread");
+            free(args);
+            exit(-1);
+        }
     }
 
-    close(worker_pipe[0]);
-    close(notification_pipe[1]);
     printf("StarPU initiailized\n");
 
     return 0;
 }
 
-void starpu_create_worker(void) {
+void starpu_create_worker(starpu_task_spawn_mode mode) {
+    // Allocate memory for a new worker
+    workers = realloc(workers, (num_workers + 1) * sizeof(struct starpu_worker));
+    if (!workers) {
+        perror("Failed to allocate memory for worker");
+        exit(-1);
+    }
+
+    if (pipe(workers[num_workers].worker_pipe) == -1) {
+        perror("Failed to create worker pipe");
+        exit(-1);
+    }
+
+    if (pipe(workers[num_workers].notif_pipe) == -1) {
+        perror("Failed to create notif pipe");
+        exit(-1);
+    }
+
     pid_t pid = fork();
 
-    if(pid == 0) {
-        /* child process */
+    if (pid == 0) {
+        /* Child process */
         printf("CHILD PROCESS %d: created\n", getpid());
-        close(worker_pipe[1]);
-        close(notification_pipe[0]);
-        starpu_task_read_and_run();
+        workers[num_workers].pid = getpid();
+
+        close(workers[num_workers].worker_pipe[1]);
+        close(workers[num_workers].notif_pipe[0]);
+
+        // Use the worker-specific pipe for communication
+        starpu_task_read_and_run(workers[num_workers].worker_pipe[0], workers[num_workers].notif_pipe[1], mode);
+    } else if (pid > 0) {
+        /* Parent process */
+        close(workers[num_workers].worker_pipe[0]);
+        close(workers[num_workers].notif_pipe[1]);
+
+        num_workers++;
+    } else {
+        perror("Failed to fork");
+        exit(-1);
     }
 }
 

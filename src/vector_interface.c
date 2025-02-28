@@ -23,7 +23,7 @@ struct starpu_data_handle* starpu_data_find_sub_data(struct starpu_data_handle* 
     return NULL;
 }
 
-struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* parent_handle, size_t block_index, size_t num_blocks, size_t n_dim) {
+struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* parent_handle, size_t block_index, size_t num_blocks, size_t n_dim, starpu_task_spawn_mode mode) {
 
     struct starpu_data_handle* sub_handle;
 
@@ -37,7 +37,7 @@ struct starpu_data_handle* starpu_data_get_sub_data(struct starpu_data_handle* p
     size_t offset = block_index * nb_elements * parent_handle->elem_size;
 
     // Create a sub-handle
-    sub_handle = (struct starpu_data_handle*) starpu_malloc(sizeof(struct starpu_data_handle));
+    sub_handle = (struct starpu_data_handle*) starpu_malloc(sizeof(struct starpu_data_handle), mode);
     if (!sub_handle) {
         fprintf(stderr, "Memory allocation failed in starpu_data_get_sub_data\n");
         exit(EXIT_FAILURE);

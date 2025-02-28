@@ -2,12 +2,7 @@
 #define __STARPU_DATA_H__
 
 #include "starpu.h"
-
-enum starpu_data_access_mode {
-    STARPU_R = (1 << 0), // read-only
-    STARPU_W = (1 << 1), // write-only
-    STARPU_RW = (STARPU_R | STARPU_W) // read-write
-};
+#include "starpu_enum.h"
 
 struct starpu_data_handle {
     enum starpu_data_access_mode current_mode;

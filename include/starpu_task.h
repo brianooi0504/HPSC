@@ -2,6 +2,7 @@
 #define __STARPU_TASK_H__
 
 #include "starpu.h"
+#include "starpu_enum.h"
 
 #define TYPE float
 
@@ -12,20 +13,6 @@
 #define STARPU_MAIN_RAM 0
 
 typedef void (*starpu_cpu_func_t) (void **, void *);
-
-enum starpu_task_status {
-    TASK_INIT, // initialized
-    TASK_WAITING, // waiting for dependencies
-    TASK_READY, // ready for execution
-    TASK_ASSIGNED, // assigned to a worker
-    TASK_RUNNING, // running on some worker
-    TASK_FINISHED, // finished executing
-};
-
-enum starpu_task_spawn_mode {
-    LOCAL,
-    LOCAL_PROCESS,
-};
 
 struct starpu_codelet {
     starpu_cpu_func_t cpu_funcs[STARPU_MAXIMPLEMENTATIONS];
@@ -62,8 +49,6 @@ struct starpu_func_arg {
     uint64_t tag_id;
 };
 
-void starpu_codelet_init(void);
-
 struct starpu_task* starpu_task_create(
     struct starpu_codelet* cl,
     void* cl_arg,
@@ -77,13 +62,12 @@ struct starpu_task* starpu_task_get(void);
 void starpu_task_list_init(struct starpu_task_list *list);
 void starpu_task_add_dependency(struct starpu_task* task, struct starpu_task* dependency);
 
-void starpu_task_wait_for_all(void);
-void starpu_task_run(struct starpu_task* task);
+void starpu_task_run(struct starpu_task* task, int notif_pipe_fd,starpu_task_spawn_mode mode);
 
-void starpu_task_read_and_run(void);
-void starpu_task_wait_and_spawn(void);
-struct starpu_task* starpu_task_read(void);
-void starpu_task_spawn(struct starpu_task* task, enum starpu_task_spawn_mode mode);
+void starpu_task_read_and_run(int worker_pipe_fd, int notif_pipe_fd, starpu_task_spawn_mode mode);
+void starpu_task_wait_and_spawn(starpu_task_spawn_mode mode);
+struct starpu_task* starpu_task_read(int worker_pipe_fd, starpu_task_spawn_mode mode);
+void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode);
 
 void* starpu_arg_init(void* arg1, uint64_t tag_id);
 

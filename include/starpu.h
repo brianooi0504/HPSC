@@ -14,6 +14,8 @@
 #include "starpu_data_interfaces.h"
 #include "starpu_helper.h"
 #include "starpu_task.h"
+#include "starpu_worker.h"
+#include "starpu_enum.h"
 
 #define SHM_NAME "/shm_starpu"
 #define SHM_SIZE (1 << 30)
@@ -31,16 +33,15 @@ typedef struct {
     Block *free_list;
 } shm_allocator_t;
 
-int starpu_init(int n_proc);
+int starpu_init(int n_proc, starpu_task_spawn_mode mode);
 void starpu_shutdown(void);
-void starpu_create_worker(void);
+void starpu_create_worker(starpu_task_spawn_mode mode);
 void starpu_check(void);
 
-extern int worker_pipe[2];
-extern int notification_pipe[2];
 extern int shm_fd;
 extern int task_completion_counter;
 extern int task_spawn_counter;
+extern int task_submitted_counter;
 
 extern struct starpu_task_list* task_list;
 extern struct starpu_data_handle_list* data_handle_list;
