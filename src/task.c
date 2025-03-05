@@ -188,7 +188,7 @@ void* task_spawning_worker(void* arg) {
         pthread_mutex_unlock(&task_list->lock);
         if (task) {
             printf("Thread %d spawning task %p\n", thread_id, task);
-            starpu_task_spawn(task, mode);
+            starpu_task_spawn(task, mode, thread_id);
         } else {
             usleep(10);  // Prevent CPU overuse if no tasks are ready
         }
@@ -197,14 +197,12 @@ void* task_spawning_worker(void* arg) {
     return NULL;
 }
 
-void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode) {
+void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode, int worker_index) {
 
     printf("HOST: Task %p spawned\n", task);
 
     task->self_id = task;
 
-    // Choose a worker (e.g., round-robin)
-    int worker_index = task_spawn_counter % num_workers;
     task_spawn_counter++;
 
     write(workers[worker_index].worker_pipe[1], task, sizeof(struct starpu_task));
@@ -264,8 +262,11 @@ void starpu_task_wait_and_spawn(int n_proc, starpu_task_spawn_mode mode) {
 
             pthread_mutex_unlock(&task_list->lock);
 
+            // Choose a worker (e.g., round-robin)
+            int worker_index = task_spawn_counter % num_workers;
+
             if (cur) {
-                starpu_task_spawn(cur, mode);
+                starpu_task_spawn(cur, mode, worker_index);
                 cur = NULL;
             }
         }
