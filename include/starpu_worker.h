@@ -15,6 +15,11 @@ struct notification_listener_args {
     int notif_pipe_fd;
 };
 
+struct spawner_args {
+    enum starpu_task_spawn_mode mode;
+    int thread_id;
+};
+
 extern struct starpu_worker* workers;
 extern int num_workers;
 

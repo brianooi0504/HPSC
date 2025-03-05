@@ -508,7 +508,7 @@ int main(void) {
     // task_submitted_counter++;
     #endif
 
-    starpu_task_wait_and_spawn(SPAWNMODE);
+    starpu_task_wait_and_spawn(NPROC, SPAWNMODE);
 
     end = starpu_timing_now();
     double timing = end - start; // us (microsecs)

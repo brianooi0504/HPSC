@@ -65,7 +65,7 @@ void starpu_task_add_dependency(struct starpu_task* task, struct starpu_task* de
 void starpu_task_run(struct starpu_task* task, int notif_pipe_fd,starpu_task_spawn_mode mode);
 
 void starpu_task_read_and_run(int worker_pipe_fd, int notif_pipe_fd, starpu_task_spawn_mode mode);
-void starpu_task_wait_and_spawn(starpu_task_spawn_mode mode);
+void starpu_task_wait_and_spawn(int n_proc, starpu_task_spawn_mode mode);
 struct starpu_task* starpu_task_read(int worker_pipe_fd, starpu_task_spawn_mode mode);
 void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode);
 

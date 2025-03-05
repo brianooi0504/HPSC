@@ -174,6 +174,27 @@ void starpu_task_read_and_run(int worker_pipe_fd, int notif_pipe_fd, starpu_task
     }
 }
 
+void* task_spawning_worker(void* arg) {
+    struct spawner_args* args = (struct spawner_args*) arg;
+    enum starpu_task_spawn_mode mode = args->mode;
+    int thread_id = args->thread_id;
+
+    // Free the argument structure (no longer needed)
+    free(args);
+
+    while (task_completion_counter < task_submitted_counter) {
+        struct starpu_task* task = starpu_task_get();
+        if (task) {
+            printf("Thread %d spawning task %p\n", thread_id, task);
+            starpu_task_spawn(task, mode);
+        } else {
+            usleep(10);  // Prevent CPU overuse if no tasks are ready
+        }
+    }
+
+    return NULL;
+}
+
 void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode) {
 
     printf("HOST: Task %p spawned\n", task);
@@ -209,22 +230,44 @@ void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode) {
     }
 }
 
-void starpu_task_wait_and_spawn(starpu_task_spawn_mode mode) {
+void starpu_task_wait_and_spawn(int n_proc, starpu_task_spawn_mode mode) {
+    if (mode == REMOTE_PROCESS) {
+        pthread_t worker_threads[n_proc];
 
+        for (int i = 0; i < n_proc; i++) {
+            struct spawner_args* args = malloc(sizeof(struct spawner_args));
+            if (!args) {
+                perror("Failed to allocate memory for thread arguments");
+                exit(-1);
+            }
+            args->mode = mode;
+            args->thread_id = i;
 
-    while (task_completion_counter < task_submitted_counter) {
-        pthread_mutex_lock(&task_list->lock);
-        struct starpu_task* cur = NULL;
-        cur = starpu_task_get();
+            if (pthread_create(&worker_threads[i], NULL, task_spawning_worker, args) != 0) {
+                perror("Failed to create spawner thread");
+                free(args);
+                exit(-1);
+            }
+        }
+    
+        // Wait for all threads to finish
+        for (int i = 0; i < n_proc; i++) {
+            pthread_join(worker_threads[i], NULL);
+        }
+    } else {
+        while (task_completion_counter < task_submitted_counter) {
+            pthread_mutex_lock(&task_list->lock);
+            struct starpu_task* cur = NULL;
+            cur = starpu_task_get();
 
-        pthread_mutex_unlock(&task_list->lock);
+            pthread_mutex_unlock(&task_list->lock);
 
-        if (cur) {
-            starpu_task_spawn(cur, mode);
-            cur = NULL;
+            if (cur) {
+                starpu_task_spawn(cur, mode);
+                cur = NULL;
+            }
         }
     }
-
 }
 
 void* starpu_arg_init(void* arg1, uint64_t tag_id) {
