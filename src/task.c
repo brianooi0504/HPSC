@@ -183,7 +183,9 @@ void* task_spawning_worker(void* arg) {
     free(args);
 
     while (task_completion_counter < task_submitted_counter) {
+        pthread_mutex_lock(&task_list->lock);
         struct starpu_task* task = starpu_task_get();
+        pthread_mutex_unlock(&task_list->lock);
         if (task) {
             printf("Thread %d spawning task %p\n", thread_id, task);
             starpu_task_spawn(task, mode);
