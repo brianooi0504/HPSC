@@ -167,8 +167,6 @@ void starpu_task_read_and_run(int worker_pipe_fd, int notif_pipe_fd, starpu_task
     while (1) {
         cur = starpu_task_read(worker_pipe_fd, mode);
 
-        printf("pid: %d , cur: %p\n", getpid(), cur);
-
         if (cur) {
             printf("CHILD PROCESS %d: Task read\n", getpid());
             starpu_task_run(cur, notif_pipe_fd, mode);

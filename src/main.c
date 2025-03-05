@@ -4,8 +4,8 @@
 
 #define AXPY // INCR, AXPY, STENCIL, MATMULT
 
-#define N (48*1024*1024)
-// #define N 4096
+// #define N (48*1024*1024)
+#define N 4096
 #define NBLOCKS 16
 
 #define NPROC 16
