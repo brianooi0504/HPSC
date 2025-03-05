@@ -37,6 +37,7 @@ void starpu_task_submit(struct starpu_task* task) {
     for (int i = 0; i < task->num_dependencies; i++) {
         if (task->dependencies[i]->status != TASK_FINISHED) {
             all_dependencies_met = 0;
+            pthread_mutex_unlock(&task_list->lock);
             break;
         }
     }
@@ -128,7 +129,12 @@ struct starpu_task* starpu_task_read(int worker_pipe_fd, starpu_task_spawn_mode 
 
             // Read the size of the user_data
             size_t data_size;
-            read(worker_pipe_fd, &data_size, sizeof(size_t));
+
+            if (read_exact(worker_pipe_fd, &data_size, sizeof(size_t)) != sizeof(size_t)) {
+                perror("Failed to read full data_size");
+                free(task);
+                return NULL;
+            }
 
             // Allocate memory for the user_data
             handle->user_data = malloc(data_size);
@@ -141,7 +147,11 @@ struct starpu_task* starpu_task_read(int worker_pipe_fd, starpu_task_spawn_mode 
             }
 
             // Read the serialized data into user_data
-            read(worker_pipe_fd, handle->user_data, data_size);
+            if (read_exact(worker_pipe_fd, handle->user_data, data_size) != data_size) {
+                perror("Failed to read full user_data");
+                free(task);
+                return NULL;
+            }
 
             printf("CHILD PROCESS %d: Deserialized data handle %p (size: %zu)\n", getpid(), handle, data_size);
         }
@@ -157,10 +167,13 @@ void starpu_task_read_and_run(int worker_pipe_fd, int notif_pipe_fd, starpu_task
     while (1) {
         cur = starpu_task_read(worker_pipe_fd, mode);
 
+        printf("pid: %d , cur: %p\n", getpid(), cur);
+
         if (cur) {
             printf("CHILD PROCESS %d: Task read\n", getpid());
             starpu_task_run(cur, notif_pipe_fd, mode);
         }
+        sleep(1);
     }
 }
 
@@ -184,23 +197,30 @@ void starpu_task_spawn(struct starpu_task* task, starpu_task_spawn_mode mode) {
 
             // Send the size of the user_data
             size_t data_size = handle->nx * handle->elem_size; // Example: nx * elem_size for array data
-            write(workers[worker_index].worker_pipe[1], &data_size, sizeof(size_t));
+
+            if (write_exact(workers[worker_index].worker_pipe[1], &data_size, sizeof(size_t)) != sizeof(size_t)) {
+                perror("Failed to write full data_size");
+                return;
+            }
 
             // Send the user_data itself
-            write(workers[worker_index].worker_pipe[1], handle->user_data, data_size);
+            if (write_exact(workers[worker_index].worker_pipe[1], handle->user_data, data_size) != data_size) {
+                perror("Failed to write full user_data");
+                return;
+            }
         }
     }
 }
 
 void starpu_task_wait_and_spawn(starpu_task_spawn_mode mode) {
-    struct starpu_task* cur = NULL;
+
 
     while (task_completion_counter < task_submitted_counter) {
-        pthread_mutex_lock(&task_list->lock);
-
+        // pthread_mutex_lock(&task_list->lock);
+        struct starpu_task* cur = NULL;
         cur = starpu_task_get();
 
-        pthread_mutex_unlock(&task_list->lock);
+        // pthread_mutex_unlock(&task_list->lock);
 
         if (cur) {
             starpu_task_spawn(cur, mode);
@@ -242,10 +262,16 @@ void starpu_task_run(struct starpu_task* task, int notif_pipe_fd, starpu_task_sp
 
             // Send the size of the user_data
             size_t data_size = handle->nx * handle->elem_size; // Example: nx * elem_size for array data
-            write(notif_pipe_fd, &data_size, sizeof(size_t));
+            if (write_exact(notif_pipe_fd, &data_size, sizeof(size_t)) != sizeof(size_t)) {
+                perror("Failed to write full data_size for notif");
+                return;
+            }
 
             // Send the modified user_data
-            write(notif_pipe_fd, handle->user_data, data_size);
+            if (write_exact(notif_pipe_fd, handle->user_data, data_size) != data_size) {
+                perror("Failed to write full user_data for notif");
+                return;
+            }
         }
     }
 }

@@ -38,10 +38,16 @@ void* notification_listener(void *arg) {
 
                 // Read the size of the modified user_data
                 size_t data_size;
-                read(notif_pipe_fd, &data_size, sizeof(size_t));
+                if (read_exact(notif_pipe_fd, &data_size, sizeof(size_t)) != sizeof(size_t)) {
+                    perror("Failed to read full data_size for notif");
+                    return NULL;
+                }
 
                 // Read the modified user_data
-                read(notif_pipe_fd, handle->user_data, data_size);
+                if (read_exact(notif_pipe_fd, handle->user_data, data_size) != data_size) {
+                    perror("Failed to read full user_data for notif");
+                    return NULL;
+                }
             }
         }
         
