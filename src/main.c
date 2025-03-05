@@ -5,7 +5,7 @@
 #define AXPY // INCR, AXPY, STENCIL, MATMULT
 
 // #define N (48*1024*1024)
-#define N 1024
+#define N 4096
 #define NBLOCKS 16
 
 #define NPROC 16
@@ -438,20 +438,13 @@ int main(void) {
         struct starpu_task* task = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), b);
         
         task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
-		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE); 
-
-        task->version_req[0] = task->handles[0]->version_req + 1;
-        task->version_req[1] = task->handles[1]->version_req + 1;
-        task->handles[0]->version_req++;
-        task->handles[1]->version_req++;
+		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);      
         #endif
 
         #ifdef INCR
         struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), b);
         
         task->handles[0] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);
-        task->version_req[0] = task->handles[0]->version_req + 1;
-        task->handles[0]->version_req++;
         #endif
 
         #ifdef STENCIL
@@ -459,11 +452,6 @@ int main(void) {
         
         task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
 		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);
-
-        task->version_req[0] = task->handles[0]->version_req + 1;
-        task->version_req[1] = task->handles[1]->version_req + 1;
-        task->handles[0]->version_req++;
-        task->handles[1]->version_req++;
         #endif
 
         #ifdef MATMULT
@@ -472,13 +460,6 @@ int main(void) {
         task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
 		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE); 
         task->handles[2] = starpu_data_get_sub_data(_handle_z, b, NBLOCKS, NDIM, SPAWNMODE); 
-
-        task->version_req[0] = task->handles[0]->version_req + 1;
-        task->version_req[1] = task->handles[1]->version_req + 1;
-        task->version_req[2] = task->handles[2]->version_req + 1;
-        task->handles[0]->version_req++;
-        task->handles[1]->version_req++;
-        task->handles[2]->version_req++;
         #endif
 
         starpu_task_submit(task); // add the task to the task list

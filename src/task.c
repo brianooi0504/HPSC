@@ -25,6 +25,11 @@ struct starpu_task* starpu_task_create(
 }
 
 void starpu_task_submit(struct starpu_task* task) {
+    for (int i = 0; i < task->cl->nbuffers; i++) {
+        task->version_req[i] = task->handles[i]->version_req + 1;
+        task->handles[i]->version_req++;
+    }
+
     pthread_mutex_lock(&task_list->lock);
 
     // Check if all dependencies are met
