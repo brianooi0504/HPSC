@@ -171,7 +171,6 @@ void starpu_task_read_and_run(int worker_pipe_fd, int notif_pipe_fd, starpu_task
             printf("CHILD PROCESS %d: Task read\n", getpid());
             starpu_task_run(cur, notif_pipe_fd, mode);
         }
-        sleep(1);
     }
 }
 
@@ -214,11 +213,11 @@ void starpu_task_wait_and_spawn(starpu_task_spawn_mode mode) {
 
 
     while (task_completion_counter < task_submitted_counter) {
-        // pthread_mutex_lock(&task_list->lock);
+        pthread_mutex_lock(&task_list->lock);
         struct starpu_task* cur = NULL;
         cur = starpu_task_get();
 
-        // pthread_mutex_unlock(&task_list->lock);
+        pthread_mutex_unlock(&task_list->lock);
 
         if (cur) {
             starpu_task_spawn(cur, mode);
