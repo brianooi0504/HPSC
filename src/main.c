@@ -4,14 +4,16 @@
 
 #define AXPY // INCR, AXPY, STENCIL, MATMULT
 
-// #define N (48*1024*1024)
-#define N 4096
+#define N (48*1024*1024)
+// #define N 4096
 #define NBLOCKS 16
 
 #define NPROC 16
 
 #define PRINTARRAY 0
 #define CHECK 1
+
+#define ITER 1
 
 #define SPAWNMODE (starpu_task_spawn_mode) REMOTE_PROCESS // LOCAL_PROCESS, REMOTE_PROCESS,
 
@@ -250,7 +252,7 @@ void starpu_check(void) {
     #ifdef AXPY
     float maxError = 0.0f;
     for (int i = 0; i < N; i++){
-        maxError = fmax(maxError, fabs(_vec_y[i] - 7.4));
+        maxError = fmax(maxError, fabs(_vec_y[i] - (4+_alpha*ITER)));
     }
     printf("Max error: %f\n", maxError);
     #endif
@@ -433,38 +435,40 @@ int main(void) {
     start = starpu_timing_now();
 
     unsigned b;
-    for (b = 0; b < NBLOCKS; b++) {
-        #ifdef AXPY
-        struct starpu_task* task = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), b);
-        
-        task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
-		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);      
-        #endif
+    for (int repeat = 0; repeat < ITER; repeat++) {
+        for (b = 0; b < NBLOCKS; b++) {
+            #ifdef AXPY
+            struct starpu_task* task = starpu_task_create(&axpy_cl, &_alpha, sizeof(_alpha), b);
+            
+            task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
+            task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);      
+            #endif
 
-        #ifdef INCR
-        struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), b);
-        
-        task->handles[0] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);
-        #endif
+            #ifdef INCR
+            struct starpu_task* task = starpu_task_create(&increment_cl, &_alpha, sizeof(_alpha), b);
+            
+            task->handles[0] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);
+            #endif
 
-        #ifdef STENCIL
-        struct starpu_task* task = starpu_task_create(&stencil_cl, &_filter, sizeof(_filter), b);
-        
-        task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
-		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);
-        #endif
+            #ifdef STENCIL
+            struct starpu_task* task = starpu_task_create(&stencil_cl, &_filter, sizeof(_filter), b);
+            
+            task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
+            task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE);
+            #endif
 
-        #ifdef MATMULT
-        struct starpu_task* task = starpu_task_create(&matmult_cl, &_alpha, sizeof(_alpha), b);
-        
-        task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
-		task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE); 
-        task->handles[2] = starpu_data_get_sub_data(_handle_z, b, NBLOCKS, NDIM, SPAWNMODE); 
-        #endif
+            #ifdef MATMULT
+            struct starpu_task* task = starpu_task_create(&matmult_cl, &_alpha, sizeof(_alpha), b);
+            
+            task->handles[0] = starpu_data_get_sub_data(_handle_x, b, NBLOCKS, NDIM, SPAWNMODE);
+            task->handles[1] = starpu_data_get_sub_data(_handle_y, b, NBLOCKS, NDIM, SPAWNMODE); 
+            task->handles[2] = starpu_data_get_sub_data(_handle_z, b, NBLOCKS, NDIM, SPAWNMODE); 
+            #endif
 
-        starpu_task_submit(task); // add the task to the task list
-        task_submitted_counter++;
+            starpu_task_submit(task); // add the task to the task list
+            task_submitted_counter++;
 
+        }
     }
 
     #ifdef AXPY
